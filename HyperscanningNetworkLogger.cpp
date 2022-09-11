@@ -62,14 +62,14 @@ void HyperscanningNetworkLogger::Preflight() const {
 void HyperscanningNetworkLogger::Initialize() {
 	mLogNetwork = ( OptionalParameter( "LogNetwork" ) > 0 );
 
+}
+
+void HyperscanningNetworkLogger::StartRun() {
 	if ( mLogNetwork ) {
 		Setup();
 		bciwarn << "Starting Network Thread";
 		Start();
 	}
-}
-
-void HyperscanningNetworkLogger::StartRun() {
 }
 
 void HyperscanningNetworkLogger::Process() {
@@ -99,8 +99,8 @@ void HyperscanningNetworkLogger::Halt() {
 
 
 void HyperscanningNetworkLogger::Setup() {
-	mAddress = "10.138.1.182";
-	//mAddress = "127.0.0.1";
+	//mAddress = "10.138.1.182";
+	mAddress = "127.0.0.1";
 	//mAddress = "172.20.10.10";
 	bciout << "Connecting to socket";
 	sockfd = socket( AF_INET, SOCK_STREAM, 0 );
@@ -118,20 +118,23 @@ void HyperscanningNetworkLogger::Setup() {
 }
 
 int HyperscanningNetworkLogger::OnExecute() {
+
+	bciout << "Awaiting server greeting...";
 	buffer = ( char* )malloc( 1025 * sizeof( char ) );
-	//Wait for server to be ready for writes
 	read( sockfd, buffer, 1025 );
-	bciout << "Greeting Message: " << buffer;
+	bciout << "Server Greeting: " << buffer;
 
 	while ( !mTerminate ) {
 		mMessageMutex.lock();
 		std::string name( mMessage.c_str() );
 		char size = *( mMessage.c_str() + name.size() + 1 );
 		char value = *( mMessage.c_str() + name.size() + 2 );
-		send( sockfd, mMessage.c_str(), mMessage.size(), 0 );
+		if ( send( sockfd, mMessage.c_str(), mMessage.size(), 0 ) < 0 )
+			bciwarn << "Error writing to socket: " << errno;
 		mMessageMutex.unlock();
 
-		read( sockfd, buffer, 1025 );
+		if ( read( sockfd, buffer, 1025 ) < 0 )
+			bciwarn << "Error reading socket: " << errno;
 		Interpret( buffer );
 	}
 	return 1;
