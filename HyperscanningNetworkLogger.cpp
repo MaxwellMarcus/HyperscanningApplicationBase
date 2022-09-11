@@ -61,32 +61,22 @@ void HyperscanningNetworkLogger::Preflight() const {
 
 void HyperscanningNetworkLogger::Initialize() {
 	mLogNetwork = ( OptionalParameter( "LogNetwork" ) > 0 );
-//	int numParams = Parameter( "SharedStates" )->NumValues();
-//	std::vector<std::string> sharedStates( numParams / 2, "" );
-//	for ( int i = 0; i < numParams; i += 2 ) {
-//		sharedStates[ i ] = ( std::string )Parameter( "SharedStates" )( i );
-//		std::string size = ( std::string )Parameter( "SharedStates" )( i + 1 );
-//		//BEGIN_EVENT_DEFINITIONS
-//		//	sharedStates[ i ] + " " + size + " 0 0 0"
-//		//END_EVENT_DEFINITIONS
-//	}
-//	mSharedStates = sharedStates;
-}
 
-void HyperscanningNetworkLogger::StartRun() {
 	if ( mLogNetwork ) {
 		Setup();
 		bciwarn << "Starting Network Thread";
 		Start();
 	}
 }
-//
+
+void HyperscanningNetworkLogger::StartRun() {
+}
+
 void HyperscanningNetworkLogger::Process() {
 	const std::lock_guard<std::mutex> lock( mMessageMutex );
 	mMessage = "";
 
 	for ( int i = 0; i < mSharedStates.size(); i++ ) {
-		bciout << mSharedStates[ i ] << " : " << State( mSharedStates[ i ] );
 		std::string message( mSharedStates[ i ] );
 		StateRef s = State( mSharedStates[ i ] );
 		uint32_t val = s;
@@ -128,6 +118,11 @@ void HyperscanningNetworkLogger::Setup() {
 }
 
 int HyperscanningNetworkLogger::OnExecute() {
+	buffer = ( char* )malloc( 1025 * sizeof( char ) );
+	//Wait for server to be ready for writes
+	read( sockfd, buffer, 1025 );
+	bciout << "Greeting Message: " << buffer;
+
 	while ( !mTerminate ) {
 		mMessageMutex.lock();
 		std::string name( mMessage.c_str() );
@@ -136,7 +131,6 @@ int HyperscanningNetworkLogger::OnExecute() {
 		send( sockfd, mMessage.c_str(), mMessage.size(), 0 );
 		mMessageMutex.unlock();
 
-		buffer = ( char* )malloc( 1025 * sizeof( char ) );
 		read( sockfd, buffer, 1025 );
 		Interpret( buffer );
 	}
