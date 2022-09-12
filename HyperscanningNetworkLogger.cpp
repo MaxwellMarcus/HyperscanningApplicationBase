@@ -51,6 +51,7 @@ void HyperscanningNetworkLogger::Publish() {
 		}
 		mSharedStates = sharedStates;
 		mPreviousStates = std::vector<uint32_t>( mSharedStates.size(), 0 );
+		mHasUpdated = std::vector<bool>( mSharedStates.size(), true );
 	}
 }
 //
@@ -82,17 +83,20 @@ void HyperscanningNetworkLogger::Process() {
 		StateRef s = State( mSharedStates[ i ] );
 		uint32_t val = s;
 		if ( val != mPreviousStates[ i ] ) {
-			bciwarn << val << " != " << mPreviousStates[ i ];
-			message.push_back( '\0' );
-			message.push_back( ( char ) s->Length() );
-			message += std::string( ( char* )( &val ), s->Length() ).c_str();
+			if ( mHasUpdated[ i ] ) {
+				bciwarn << val << " != " << mPreviousStates[ i ];
+				message.push_back( '\0' );
+				message.push_back( ( char ) s->Length() );
+				message += std::string( ( char* )( &val ), s->Length() ).c_str();
 
-			mMessage += message;
+				mMessage += message;
 
-			mPreviousStatesMutex.lock();
-			mPreviousStates[ i ] = val;
-			mPreviousStatesMutex.unlock();
-		}
+				mPreviousStatesMutex.lock();
+				mPreviousStates[ i ] = val;
+				mPreviousStatesMutex.unlock();
+			}
+		} else
+			mHasUpdated[ i ] = true;
 	}
 	mMessage.push_back( '\0' );
 }
@@ -157,12 +161,13 @@ void HyperscanningNetworkLogger::Interpret( char* buffer ) {
 		std::string value( buffer, size );
 		buffer += size;
 
-		char val = *value.c_str();
+		uint32_t val = *value.c_str();
 
 		bciwarn << name << ": " << ( int )val;
 		mPreviousStatesMutex.lock();
 		auto it = find( mSharedStates.begin(), mSharedStates.end(), name );
 		mPreviousStates[ it - mSharedStates.begin() ] = val;
+		mHasUpdated[ it - mSharedStates.begin() ] = false;
 		mPreviousStatesMutex.unlock();
 
 		bcievent << name << " " << val;

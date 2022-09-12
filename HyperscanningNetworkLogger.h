@@ -39,6 +39,7 @@ class HyperscanningNetworkLogger : public EnvironmentExtension, public Thread {
 
 		std::vector<std::string> mSharedStates;
 		std::vector<uint32_t> mPreviousStates;
+		std::vector<bool> mHasUpdated;
 		std::mutex mPreviousStatesMutex;
 		std::string mMessage;
 		std::mutex mMessageMutex;
