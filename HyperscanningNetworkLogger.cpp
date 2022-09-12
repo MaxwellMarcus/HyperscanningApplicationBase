@@ -50,6 +50,7 @@ void HyperscanningNetworkLogger::Publish() {
 			sharedStates.push_back( name );
 		}
 		mSharedStates = sharedStates;
+		mPreviousStates = std::vector<uint32_t>( mSharedStates.size(), 0 );
 	}
 }
 //
@@ -80,11 +81,15 @@ void HyperscanningNetworkLogger::Process() {
 		std::string message( mSharedStates[ i ] );
 		StateRef s = State( mSharedStates[ i ] );
 		uint32_t val = s;
-		message.push_back( '\0' );
-		message.push_back( ( char ) s->Length() );
-		message += std::string( ( char* )( &val ), s->Length() ).c_str();
+		if ( val != mPreviousStates[ i ] ) {
+			message.push_back( '\0' );
+			message.push_back( ( char ) s->Length() );
+			message += std::string( ( char* )( &val ), s->Length() ).c_str();
 
-		mMessage += message;
+			mMessage += message;
+
+			mPreviousStates[ i ] = val;
+		}
 	}
 	mMessage.push_back( '\0' );
 }
@@ -99,8 +104,8 @@ void HyperscanningNetworkLogger::Halt() {
 
 
 void HyperscanningNetworkLogger::Setup() {
-	//mAddress = "10.138.1.182";
-	mAddress = "127.0.0.1";
+	mAddress = "10.138.1.182";
+	//mAddress = "127.0.0.1";
 	//mAddress = "172.20.10.10";
 	bciout << "Connecting to socket";
 	sockfd = socket( AF_INET, SOCK_STREAM, 0 );
@@ -150,6 +155,8 @@ void HyperscanningNetworkLogger::Interpret( char* buffer ) {
 		buffer += size;
 
 		char val = *value.c_str();
+
+		bciwarn << name << ": " << val;
 
 		bcievent << name << " " << val;
 	}
