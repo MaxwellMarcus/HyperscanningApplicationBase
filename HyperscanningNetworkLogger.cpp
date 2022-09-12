@@ -82,6 +82,7 @@ void HyperscanningNetworkLogger::Process() {
 		StateRef s = State( mSharedStates[ i ] );
 		uint32_t val = s;
 		if ( val != mPreviousStates[ i ] ) {
+			bciwarn << val << " != " << mPreviousStates[ i ];
 			message.push_back( '\0' );
 			message.push_back( ( char ) s->Length() );
 			message += std::string( ( char* )( &val ), s->Length() ).c_str();
@@ -156,7 +157,7 @@ void HyperscanningNetworkLogger::Interpret( char* buffer ) {
 
 		char val = *value.c_str();
 
-		bciwarn << name << ": " << val;
+		bciwarn << name << ": " << ( int ) *val;
 
 		bcievent << name << " " << val;
 	}
