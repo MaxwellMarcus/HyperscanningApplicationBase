@@ -89,7 +89,9 @@ void HyperscanningNetworkLogger::Process() {
 
 			mMessage += message;
 
+			mPreviousStatesMutex.lock();
 			mPreviousStates[ i ] = val;
+			mPreviousStatesMutex.unlock();
 		}
 	}
 	mMessage.push_back( '\0' );
@@ -157,7 +159,11 @@ void HyperscanningNetworkLogger::Interpret( char* buffer ) {
 
 		char val = *value.c_str();
 
-		bciwarn << name << ": " << ( int ) *val;
+		bciwarn << name << ": " << ( int )val;
+		mPreviousStatesMutex.lock();
+		auto it = find( mSharedStates.begin(), mSharedStates.end(), name );
+		mPreviousStates[ it - mSharedStates.begin() ] = val;
+		mPreviousStatesMutex.unlock();
 
 		bcievent << name << " " << val;
 	}
