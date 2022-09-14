@@ -29,8 +29,10 @@ void HyperscanningNetworkLogger::Publish() {
 		BEGIN_PARAMETER_DEFINITIONS
 			"Source:Hyperscanning%20Network%20Logger int LogNetwork= 1 0 0 1"
 			" // record hyperscanning network states (boolean) ",
-			"Source:Hyperscanning%20Network%20Logger stringmatrix SharedStates= { Name Size } 1 Color 1 % % % %"
-			" // States to share with the server and other clients"
+			"Source:Hyperscanning%20Network%20Logger string IPAddress= 127.0.0.1 % % %"
+			" // IPv4 address of server",
+			"Source:Hyperscanning%20Network%20Logger int Port= 9999 % % %"
+			" // server port"
 		END_PARAMETER_DEFINITIONS
 		//bciwarn << OptionalParameter( "SharedStates" );
 		std::string states( OptionalParameter( "SharedStates" ) );
@@ -58,6 +60,10 @@ void HyperscanningNetworkLogger::Publish() {
 void HyperscanningNetworkLogger::Preflight() const {
 	if ( Parameter( "SharedStates" )->NumValues() < 1 )// || Parameter( "SharedStates" )->NumValues() % 2 == 1 )
 		bcierr << "You must have at least one shared state and a name and size for each";
+	if ( !Parameter( "IPAddress" ) )
+		bcierr << "Must give server address";
+	if ( !Parameter( "Port" ) )
+		bcierr << "Must specify port";
 
 }
 
@@ -111,10 +117,14 @@ void HyperscanningNetworkLogger::Halt() {
 
 
 void HyperscanningNetworkLogger::Setup() {
-	mAddress = "10.138.1.182";
+	//mAddress = "10.138.1.182";
 	//mAddress = "127.0.0.1";
 	//mAddress = "172.20.10.10";
-	bciout << "Connecting to socket";
+	mAddress = ( std::string )Parameter( "IPAddress" );
+	mPort = Parameter( "Port" );
+
+	bciwarn << "Connecting to " << mAddress << ":" << mPort;
+	
 	sockfd = socket( AF_INET, SOCK_STREAM, 0 );
 	if ( sockfd == -1 )
 		bcierr << "Failed to create socket. errno: " << errno;
@@ -122,7 +132,7 @@ void HyperscanningNetworkLogger::Setup() {
 	serv_addr.sin_family = AF_INET;
 	serv_addr.sin_port = htons( mPort );
 
-	if ( inet_pton( AF_INET, mAddress, &serv_addr.sin_addr ) <= 0 )
+	if ( inet_pton( AF_INET, mAddress.c_str(), &serv_addr.sin_addr ) <= 0 )
 		bcierr << "Invalid address / address not supported";
 	
 	if ( ( clientfd = connect( sockfd, ( struct sockaddr* )&serv_addr, sizeof( serv_addr ) ) ) < 0 )

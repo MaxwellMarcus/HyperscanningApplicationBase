@@ -49,8 +49,8 @@ class HyperscanningNetworkLogger : public EnvironmentExtension, public Thread {
 		sockaddr_in serv_addr;
 		char* buffer;
 
-		char* mAddress;
-		int mPort = 1234;
+		std::string mAddress;
+		int mPort;
 };
 
 #endif
