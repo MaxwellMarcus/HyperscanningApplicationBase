@@ -20,6 +20,7 @@ class HyperscanningNetworkLogger : public EnvironmentExtension, public Thread {
 		~HyperscanningNetworkLogger();
 
 		void Publish() override;
+		void AutoConfig() override;
 		void Preflight() const override;
 		void Initialize() override;
 		void StartRun() override;

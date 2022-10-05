@@ -13,6 +13,7 @@
 #include <mutex>
 #include <sstream>
 #include <iostream>
+#include <fstream>
 
 Extension( HyperscanningNetworkLogger );
 
@@ -54,16 +55,24 @@ void HyperscanningNetworkLogger::Publish() {
 		mSharedStates = sharedStates;
 		mPreviousStates = std::vector<uint32_t>( mSharedStates.size(), 0 );
 		mHasUpdated = std::vector<bool>( mSharedStates.size(), true );
+
+		if ( OptionalParameter( "LogNetwork" ) > 0 ) {
+			Setup();
+			bciwarn << "Starting Network Thread";
+			Start();
+		}
 	}
 }
 //
 void HyperscanningNetworkLogger::Preflight() const {
-	if ( Parameter( "SharedStates" )->NumValues() < 1 )// || Parameter( "SharedStates" )->NumValues() % 2 == 1 )
-		bcierr << "You must have at least one shared state and a name and size for each";
-	if ( !Parameter( "IPAddress" ) )
-		bcierr << "Must give server address";
-	if ( !Parameter( "Port" ) )
-		bcierr << "Must specify port";
+	if ( OptionalParameter( "LogNetwork" ) > 0 ) {
+		if ( Parameter( "SharedStates" )->NumValues() < 1 )// || Parameter( "SharedStates" )->NumValues() % 2 == 1 )
+			bcierr << "You must have at least one shared state and a name and size for each";
+		if ( !OptionalParameter( "IPAddress" ) )
+			bcierr << "Must give server address";
+		if ( !OptionalParameter( "Port" ) )
+			bcierr << "Must specify port";
+	}
 
 }
 
@@ -72,15 +81,16 @@ void HyperscanningNetworkLogger::Initialize() {
 
 }
 
+void HyperscanningNetworkLogger::AutoConfig() {
+	Parameters->Load( "DownloadedParameters.prm", false );
+}
+
 void HyperscanningNetworkLogger::StartRun() {
-	if ( mLogNetwork ) {
-		Setup();
-		bciwarn << "Starting Network Thread";
-		Start();
-	}
 }
 
 void HyperscanningNetworkLogger::Process() {
+	if ( mLogNetwork ) return;
+
 	const std::lock_guard<std::mutex> lock( mMessageMutex );
 	mMessage = "";
 
@@ -120,8 +130,8 @@ void HyperscanningNetworkLogger::Setup() {
 	//mAddress = "10.138.1.182";
 	//mAddress = "127.0.0.1";
 	//mAddress = "172.20.10.10";
-	mAddress = ( std::string )Parameter( "IPAddress" );
-	mPort = Parameter( "Port" );
+	mAddress = ( std::string )OptionalParameter( "IPAddress" );
+	mPort = OptionalParameter( "Port" );
 
 	bciwarn << "Connecting to " << mAddress << ":" << mPort;
 	
@@ -137,16 +147,30 @@ void HyperscanningNetworkLogger::Setup() {
 	
 	if ( ( clientfd = connect( sockfd, ( struct sockaddr* )&serv_addr, sizeof( serv_addr ) ) ) < 0 )
 		bcierr << "Connection failed...";
+
+	bciout << "Awaiting server greeting...";
+
+	std::string param_file;
+	buffer = ( char* )malloc( 1025 * sizeof( char ) );
+	read( sockfd, buffer, 1025 );
+
+	while ( buffer[ 1024 ] != 0 ) {
+		param_file += std::string( buffer, 1025 );
+		memset( buffer, 0, 1025 );
+		read( sockfd, buffer, 1025 );
+	}
+
+	param_file += std::string( buffer );
+
+	std::ofstream outfile ( "DownloadedParameters.prm" );
+	outfile << param_file;
 }
 
 int HyperscanningNetworkLogger::OnExecute() {
-
-	bciout << "Awaiting server greeting...";
 	buffer = ( char* )malloc( 1025 * sizeof( char ) );
-	read( sockfd, buffer, 1025 );
-	bciout << "Server Greeting: " << buffer;
 
 	while ( !mTerminate ) {
+		memset( buffer, 0, 1025 );
 		mMessageMutex.lock();
 		std::string name( mMessage.c_str() );
 		char size = *( mMessage.c_str() + name.size() + 1 );
