@@ -35,7 +35,11 @@ void HyperscanningNetworkLogger::Publish() {
 			"Source:Hyperscanning%20Network%20Logger int Port= 9999 % % %"
 			" // server port"
 		END_PARAMETER_DEFINITIONS
-		//bciwarn << OptionalParameter( "SharedStates" );
+
+		BEGIN_EVENT_DEFINITIONS
+			"ClientNumber 1 0 0 0"
+		END_EVENT_DEFINITIONS
+
 		std::string states( OptionalParameter( "SharedStates" ) );
 		std::istringstream f( states );
 		std::string name;
@@ -89,7 +93,8 @@ void HyperscanningNetworkLogger::StartRun() {
 }
 
 void HyperscanningNetworkLogger::Process() {
-	if ( mLogNetwork ) return;
+	if ( !mLogNetwork ) return;
+	bciwarn << "Client Number: " << State( "ClientNumber" );
 
 	const std::lock_guard<std::mutex> lock( mMessageMutex );
 	mMessage = "";
