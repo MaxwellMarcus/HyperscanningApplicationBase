@@ -3,6 +3,7 @@
 
 #include "Environment.h"
 #include "Thread.h"
+#include "sockstream.h"
 #include <atomic>
 #include <netinet/in.h>
 #include <vector>
@@ -14,7 +15,7 @@ class HyperscanningNetworkThread : public Thread {
 	private:
 };
 
-class HyperscanningNetworkLogger : public EnvironmentExtension, public Thread {
+class HyperscanningNetworkLogger : public EnvironmentExtension, public Thread, public sockio::socket {
 	public:
 		HyperscanningNetworkLogger();
 		~HyperscanningNetworkLogger();
@@ -34,6 +35,11 @@ class HyperscanningNetworkLogger : public EnvironmentExtension, public Thread {
 		void Interpret( char* );
 
 	private:
+
+		int on_create() override;
+		int on_open() override {
+		}
+
 		bool mLogNetwork;
 
 		std::atomic<bool> mTerminate;
@@ -52,6 +58,8 @@ class HyperscanningNetworkLogger : public EnvironmentExtension, public Thread {
 
 		std::string mAddress;
 		int mPort;
+
+		char ClientNumber;
 };
 
 #endif

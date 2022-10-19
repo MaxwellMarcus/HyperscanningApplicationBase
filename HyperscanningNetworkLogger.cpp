@@ -2,6 +2,7 @@
 #include "BCIStream.h"
 #include "Thread.h"
 #include "BCIEvent.h"
+#include "sockstream.h"
 
 #include <sys/socket.h>
 #include <sys/select.h>
@@ -37,11 +38,11 @@ void HyperscanningNetworkLogger::Publish() {
 		END_PARAMETER_DEFINITIONS
 
 		BEGIN_EVENT_DEFINITIONS
-			"ClientNumber 1 0 0 0"
+			"ClientNumber 8 0 0 0"
 		END_EVENT_DEFINITIONS
 
 		std::string states( OptionalParameter( "SharedStates" ) );
-		std::istringstream f( states );
+		std::istringstream f( ( states ) );
 		std::string name;
 		std::string size;
 		std::vector<std::string> sharedStates;
@@ -82,6 +83,7 @@ void HyperscanningNetworkLogger::Preflight() const {
 
 void HyperscanningNetworkLogger::Initialize() {
 	mLogNetwork = ( OptionalParameter( "LogNetwork" ) > 0 );
+	State( "ClientNumber" ) = ClientNumber;
 
 }
 
@@ -130,6 +132,10 @@ void HyperscanningNetworkLogger::Halt() {
 	StopRun();
 }
 
+int HyperscanningNetworkLogger::on_create() {
+	return m_fd = ::socket( AF_INET, SOCK_STREAM, 0 );
+}
+
 
 void HyperscanningNetworkLogger::Setup() {
 	//mAddress = "10.138.1.182";
@@ -138,53 +144,79 @@ void HyperscanningNetworkLogger::Setup() {
 	mAddress = ( std::string )OptionalParameter( "IPAddress" );
 	mPort = OptionalParameter( "Port" );
 
-	bciwarn << "Connecting to " << mAddress << ":" << mPort;
+	bciwarn << "Connecting to " << mAddress << ":" << ( unsigned short )mPort;
 	
-	sockfd = socket( AF_INET, SOCK_STREAM, 0 );
-	if ( sockfd == -1 )
-		bcierr << "Failed to create socket. errno: " << errno;
+//	sockfd = socket( AF_INET, SOCK_STREAM, 0 );
+//	if ( sockfd == -1 )
+//		bcierr << "Failed to create socket. errno: " << errno;
+//
+//	serv_addr.sin_family = AF_INET;
+//	serv_addr.sin_port = htons( mPort );
+//
+//	if ( inet_pton( AF_INET, mAddress.c_str(), &serv_addr.sin_addr ) <= 0 )
+//		bcierr << "Invalid address / address not supported";
+//	
+//	if ( ( clientfd = connect( sockfd, ( struct sockaddr* )&serv_addr, sizeof( serv_addr ) ) ) < 0 )
+//		bcierr << "Connection failed...";
 
-	serv_addr.sin_family = AF_INET;
-	serv_addr.sin_port = htons( mPort );
-
-	if ( inet_pton( AF_INET, mAddress.c_str(), &serv_addr.sin_addr ) <= 0 )
-		bcierr << "Invalid address / address not supported";
-	
-	if ( ( clientfd = connect( sockfd, ( struct sockaddr* )&serv_addr, sizeof( serv_addr ) ) ) < 0 )
-		bcierr << "Connection failed...";
+	bciout << "Open: ";
+	open( mAddress, ( unsigned short )mPort );
+	bciout << "Is open: " << is_open();
+	bciout << "Address: " << address();
+	bciout << "Connect: " << connect();
+	bciout << "Connected: " << connected();
 
 	bciout << "Awaiting server greeting...";
 
 	std::string param_file;
 	buffer = ( char* )malloc( 1025 * sizeof( char ) );
-	read( sockfd, buffer, 1025 );
+	read( buffer, 1025 );
 
 	while ( buffer[ 1024 ] != 0 ) {
 		param_file += std::string( buffer, 1025 );
 		memset( buffer, 0, 1025 );
-		read( sockfd, buffer, 1025 );
+		bciwarn << "Size: " << param_file.size();
+		read( buffer, 1025 );
 	}
 
 	param_file += std::string( buffer );
 
 	std::ofstream outfile ( "DownloadedParameters.prm" );
 	outfile << param_file;
+
+	bciout << "Recieved server greeting...";
+
+	if ( read( buffer, 1025 ) < 0 )
+		bciwarn << "Error reading socket: " << errno;
+
+	while ( *buffer != '\0' ) {
+		std::string name( buffer );
+		buffer += name.size() + 1;
+		char size = *buffer++;
+		std::string value( buffer, size );
+		buffer += size;
+
+		uint32_t val = *value.c_str();
+
+		ClientNumber = val;
+	}
 }
 
 int HyperscanningNetworkLogger::OnExecute() {
-	buffer = ( char* )malloc( 1025 * sizeof( char ) );
-
 	while ( !mTerminate ) {
 		memset( buffer, 0, 1025 );
 		mMessageMutex.lock();
 		std::string name( mMessage.c_str() );
 		char size = *( mMessage.c_str() + name.size() + 1 );
 		char value = *( mMessage.c_str() + name.size() + 2 );
-		if ( send( sockfd, mMessage.c_str(), mMessage.size(), 0 ) < 0 )
+
+		mMessage.push_back( '\0' );
+
+		if ( send( mMessage.c_str(), mMessage.size(), 0 ) < 0 )
 			bciwarn << "Error writing to socket: " << errno;
 		mMessageMutex.unlock();
 
-		if ( read( sockfd, buffer, 1025 ) < 0 )
+		if ( read( buffer, 1025 ) < 0 )
 			bciwarn << "Error reading socket: " << errno;
 		Interpret( buffer );
 	}
@@ -192,7 +224,6 @@ int HyperscanningNetworkLogger::OnExecute() {
 }
 
 void HyperscanningNetworkLogger::Interpret( char* buffer ) {
-	char* cpy = buffer;
 	while ( *buffer != '\0' ) {
 		std::string name( buffer );
 		buffer += name.size() + 1;
