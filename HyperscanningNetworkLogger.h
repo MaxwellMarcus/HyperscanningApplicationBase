@@ -5,7 +5,6 @@
 #include "Thread.h"
 #include "sockstream.h"
 #include <atomic>
-#include <netinet/in.h>
 #include <vector>
 #include <queue>
 #include <mutex>
@@ -15,7 +14,7 @@ class HyperscanningNetworkThread : public Thread {
 	private:
 };
 
-class HyperscanningNetworkLogger : public EnvironmentExtension, public Thread, public sockio::socket {
+class HyperscanningNetworkLogger : public EnvironmentExtension, public Thread, public sockio::client_tcpsocket {
 	public:
 		HyperscanningNetworkLogger();
 		~HyperscanningNetworkLogger();
@@ -36,9 +35,10 @@ class HyperscanningNetworkLogger : public EnvironmentExtension, public Thread, p
 
 	private:
 
-		int on_create() override;
-		int on_open() override {
-		}
+		//int on_create() override;
+//		int on_open() override {
+//		    return 1;
+//		}
 
 		bool mLogNetwork;
 
@@ -53,7 +53,6 @@ class HyperscanningNetworkLogger : public EnvironmentExtension, public Thread, p
 
 		int sockfd;
 		int clientfd;
-		sockaddr_in serv_addr;
 		char* buffer;
 
 		std::string mAddress;

@@ -4,10 +4,6 @@
 #include "BCIEvent.h"
 #include "sockstream.h"
 
-#include <sys/socket.h>
-#include <sys/select.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
 #include <cstdlib>
 #include <unistd.h>
 #include <iostream>
@@ -132,9 +128,9 @@ void HyperscanningNetworkLogger::Halt() {
 	StopRun();
 }
 
-int HyperscanningNetworkLogger::on_create() {
-	return m_fd = ::socket( AF_INET, SOCK_STREAM, 0 );
-}
+//int HyperscanningNetworkLogger::on_create() {
+//	return m_fd = ::socket( AF_INET, SOCK_STREAM, 0 );
+//}
 
 
 void HyperscanningNetworkLogger::Setup() {
