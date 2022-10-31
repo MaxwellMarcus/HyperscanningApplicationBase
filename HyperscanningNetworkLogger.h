@@ -3,10 +3,8 @@
 
 #include "Environment.h"
 #include "Thread.h"
-#include "sockstream.h"
+#include "Sockets.h"
 #include <atomic>
-#include <vector>
-#include <queue>
 #include <mutex>
 
 class HyperscanningNetworkThread : public Thread {
@@ -14,7 +12,7 @@ class HyperscanningNetworkThread : public Thread {
 	private:
 };
 
-class HyperscanningNetworkLogger : public EnvironmentExtension, public Thread, public sockio::client_tcpsocket {
+class HyperscanningNetworkLogger : public EnvironmentExtension, public Thread {
 	public:
 		HyperscanningNetworkLogger();
 		~HyperscanningNetworkLogger();
@@ -42,8 +40,6 @@ class HyperscanningNetworkLogger : public EnvironmentExtension, public Thread, p
 
 		bool mLogNetwork;
 
-		std::atomic<bool> mTerminate;
-
 		std::vector<std::string> mSharedStates;
 		std::vector<uint32_t> mPreviousStates;
 		std::vector<bool> mHasUpdated;
@@ -51,14 +47,15 @@ class HyperscanningNetworkLogger : public EnvironmentExtension, public Thread, p
 		std::string mMessage;
 		std::mutex mMessageMutex;
 
-		int sockfd;
-		int clientfd;
-		char* buffer;
+		ClientTCPSocket mSocket;
+/*		int sockfd;
+		int clientfd; */
+		char* mBuffer;
 
 		std::string mAddress;
 		int mPort;
 
-		char ClientNumber;
+		char mClientNumber;
 };
 
 #endif
