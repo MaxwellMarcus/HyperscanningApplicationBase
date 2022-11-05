@@ -99,7 +99,6 @@ void HyperscanningNetworkLogger::StartRun() {
 
 void HyperscanningNetworkLogger::Process() {
 	if ( !mLogNetwork ) return;
-	bciwarn << "Client Number: " << State( "ClientNumber" );
 
 	const std::lock_guard<std::mutex> lock( mMessageMutex );
 	mMessage = "";
@@ -200,7 +199,8 @@ void HyperscanningNetworkLogger::Setup() {
 		std::string value( buffer, size );
 		buffer += size;
 
-		uint32_t val = *value.c_str(); // what if size > 1?,jm
+		uint32_t val;
+		memcpy( &val, value.c_str(), size );
 
 		mClientNumber = val;
 	}
@@ -246,7 +246,8 @@ void HyperscanningNetworkLogger::Interpret( char* buffer ) {
 		std::string value( buffer, size );
 		buffer += size;
 
-		uint32_t val = *value.c_str(); // what if size > 1?,jm
+		uint32_t val;
+		memcpy( &val, value.c_str(), size );
 
 		bciwarn << name << ": " << ( int )val;
 		mPreviousStatesMutex.lock();
