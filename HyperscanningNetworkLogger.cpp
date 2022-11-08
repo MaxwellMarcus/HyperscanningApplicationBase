@@ -63,6 +63,9 @@ void HyperscanningNetworkLogger::Publish() {
 		mSharedStates = sharedStates;
 		mPreviousStates = std::vector<uint32_t>( mSharedStates.size(), 0 );
 		mHasUpdated = std::vector<bool>( mSharedStates.size(), true );
+
+		if (OptionalParameter("LogNetwork") > 0)
+			Setup();
 	}
 }
 //
@@ -86,8 +89,6 @@ void HyperscanningNetworkLogger::Initialize() {
 
 void HyperscanningNetworkLogger::AutoConfig() {
 	Parameters->Load( "DownloadedParameters.prm", false );
-	if (OptionalParameter("LogNetwork") > 0)
-		Setup();
 }
 
 void HyperscanningNetworkLogger::StartRun() {
@@ -148,20 +149,6 @@ void HyperscanningNetworkLogger::Setup() {
 	mPort = OptionalParameter( "Port" );
 
 	bciwarn << "Connecting to " << mAddress << ":" << ( unsigned short )mPort;
-	
-//	sockfd = socket( AF_INET, SOCK_STREAM, 0 );
-//	if ( sockfd == -1 )
-//		bcierr << "Failed to create socket. errno: " << errno;
-//
-//	serv_addr.sin_family = AF_INET;
-//	serv_addr.sin_port = htons( mPort );
-//
-//	if ( inet_pton( AF_INET, mAddress.c_str(), &serv_addr.sin_addr ) <= 0 )
-//		bcierr << "Invalid address / address not supported";
-//	
-//	if ( ( clientfd = connect( sockfd, ( struct sockaddr* )&serv_addr, sizeof( serv_addr ) ) ) < 0 )
-//		bcierr << "Connection failed...";
-
 	bciout << "Open: ";
 	mSocket.Open( mAddress, ( unsigned short )mPort );
 	bciout << "Is open: " << mSocket.IsOpen();
@@ -171,36 +158,56 @@ void HyperscanningNetworkLogger::Setup() {
 	bciout << "Awaiting server greeting...";
 
 	std::string param_file;
-	mBuffer = ( char* )malloc( 1025 * sizeof( char ) );
-	::recv(mSocket.Fd(), mBuffer, 1025, 0); // read one packet only
-
-	while ( mBuffer[ 1024 ] != 0 ) {
-		param_file += std::string( mBuffer, 1025 );
-		memset( mBuffer, 0, 1025 );
-		bciwarn << "Size: " << param_file.size();
-		::recv(mSocket.Fd(), mBuffer, 1025, 0); // read one packet only
+	mSocket.Wait();
+	mBuffer = ( char* ) calloc( sizeof( size_t ), 1 );
+	if ( ::recv(mSocket.Fd(), mBuffer, sizeof( size_t ), 0) < 0 ) {  // read one packet only
+		bciwarn << "Error reading: " << errno;
 	}
-
-	param_file += std::string( mBuffer );
+	for ( int i = 0; i < sizeof( size_t ); i++ ) {
+		bciwarn << ( int )mBuffer[ i ];
+	}
+	size_t size;
+	memcpy( &size, mBuffer, sizeof( size_t ) );
+	free( mBuffer );
+	bciwarn << sizeof( size_t );
+	bciwarn << "Size: " << size;
+	mBuffer = ( char* )malloc( size );
+	
+	for ( int i = 0; i < size; i++ ) {
+		mSocket.Wait();
+		if ( ::recv(mSocket.Fd(), mBuffer + i, 1, 0) < 0 ) {  // read one packet only
+			bciwarn << "Error reading: " << errno;
+		}
+	}
+	
+	bciwarn << mBuffer;
+	bciwarn << ( int ) mBuffer[ size - 1 ];
+	bciwarn << "THATS BUFFER";
+	param_file += std::string( mBuffer, size );
 
 	std::ofstream outfile ( "DownloadedParameters.prm" );
 	outfile << param_file;
 
 	bciout << "Recieved server greeting...";
 
+	mSocket.Wait();
+	memset( mBuffer, 0, 1025 );
 	if ( ::recv(mSocket.Fd(), mBuffer, 1025, 0 ) < 0 ) // read one packet only
-		bciwarn << "Error reading socket: " << errno;
+		bciwarn << "reading socket: " << errno;
 
 	char* buffer = mBuffer;
-	while ( *buffer != '\0' ) {
+	while ( *buffer != 0 ) {
 		std::string name( buffer );
 		buffer += name.size() + 1;
+		bciwarn << "Name: " << name;
 		char size = *buffer++;
 		std::string value( buffer, size );
 		buffer += size;
 
-		uint32_t val;
+		uint32_t val = 0;
 		memcpy( &val, value.c_str(), size );
+
+		bciwarn << "ClientNumber: " << val;
 
 		mClientNumber = val;
 	}
@@ -246,7 +253,7 @@ void HyperscanningNetworkLogger::Interpret( char* buffer ) {
 		std::string value( buffer, size );
 		buffer += size;
 
-		uint32_t val;
+		uint32_t val = 0;
 		memcpy( &val, value.c_str(), size );
 
 		bciwarn << name << ": " << ( int )val;

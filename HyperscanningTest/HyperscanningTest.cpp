@@ -32,11 +32,7 @@ void HyperscanningTest::Initialize( const SignalProperties& Input, const SignalP
 
 void HyperscanningTest::Process( const GenericSignal& Input, GenericSignal& Output ) {
 	mpRect->SetFillColor( State( "Color" ) ? RGBColor::Teal : RGBColor::Red );
-	while( SDL_PollEvent( &e ) != 0 ) {
-		if ( e.type == SDL_MOUSEBUTTONDOWN ) {
-			bciwarn << "Original: " << State( "Color" );
-			State( "Color" ) = !State( "Color" );
-			bciwarn << "Updated: " << State( "Color" );
-		}
+	if ( State( "MouseKeys" ) )
+	    State( "Color" ) = !State( "Color" );
 	}
 }
