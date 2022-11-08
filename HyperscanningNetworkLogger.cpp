@@ -16,6 +16,8 @@
 #include <Winsock2.h>
 #undef errno
 #define errno WSAGetLastError()
+#else
+#include <sys/socket.h>
 #endif
 
 Extension( HyperscanningNetworkLogger );
