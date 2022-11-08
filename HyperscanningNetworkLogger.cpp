@@ -61,7 +61,7 @@ void HyperscanningNetworkLogger::Publish() {
 			sharedStates.push_back( name );
 		}
 		mSharedStates = sharedStates;
-		mPreviousStates = std::vector<uint32_t>( mSharedStates.size(), 0 );
+		mStateValues = std::vector<uint32_t>( mSharedStates.size(), 0 );
 		mHasUpdated = std::vector<bool>( mSharedStates.size(), true );
 
 		if (OptionalParameter("LogNetwork") > 0)
@@ -102,27 +102,27 @@ void HyperscanningNetworkLogger::Process() {
 	if ( !mLogNetwork ) return;
 
 	const std::lock_guard<std::mutex> lock( mMessageMutex );
+	const std::lock_guard<std::mutex> lock2( mStateValuesMutex );
 	mMessage = "";
 
 	for ( int i = 0; i < mSharedStates.size(); i++ ) {
+		if ( !mHasUpdated[ i ] ) {
+			State( mSharedStates[ i ] ) = mStateValues[ i ];
+			mHasUpdated[ i ] = true;
+		}
 		std::string message( mSharedStates[ i ] );
 		StateRef s = State( mSharedStates[ i ] );
 		uint32_t val = s;
-		if ( val != mPreviousStates[ i ] ) {
-			if ( mHasUpdated[ i ] ) {
-				bciwarn << val << " != " << mPreviousStates[ i ];
-				message.push_back( '\0' );
-				message.push_back( ( char ) s->Length() );
-				message += std::string( ( char* )( &val ), s->Length() ).c_str();
+		if ( val != mStateValues[ i ] ) {
+			bciwarn << val << " != " << mStateValues[ i ];
+			message.push_back( '\0' );
+			message.push_back( ( char ) s->Length() );
+			message += std::string( ( char* )( &val ), s->Length() ).c_str();
 
-				mMessage += message;
+			mMessage += message;
 
-				mPreviousStatesMutex.lock();
-				mPreviousStates[ i ] = val;
-				mPreviousStatesMutex.unlock();
-			}
-		} else
-			mHasUpdated[ i ] = true;
+			mStateValues[ i ] = val;
+		}
 	}
 	mMessage.push_back( '\0' );
 }
@@ -256,14 +256,15 @@ void HyperscanningNetworkLogger::Interpret( char* buffer ) {
 		uint32_t val = 0;
 		memcpy( &val, value.c_str(), size );
 
-		bciwarn << name << ": " << ( int )val;
-		mPreviousStatesMutex.lock();
-		auto it = find( mSharedStates.begin(), mSharedStates.end(), name );
-		mPreviousStates[ it - mSharedStates.begin() ] = val;
-		mHasUpdated[ it - mSharedStates.begin() ] = false;
-		mPreviousStatesMutex.unlock();
+		bciwarn << name << ": " << val;
 
-		bcievent << name << " " << val;
+		mStateValuesMutex.lock();
+		auto it = find( mSharedStates.begin(), mSharedStates.end(), name );
+		mStateValues[ it - mSharedStates.begin() ] = val;
+		mHasUpdated[ it - mSharedStates.begin() ] = false;
+		mStateValuesMutex.unlock();
+
+		//bcievent << name << " " << val;
 	}
 }
 
