@@ -168,7 +168,7 @@ void HyperscanningNetworkLogger::Setup() {
 	for ( int i = 0; i < sizeof( size_t ); i++ ) {
 		bciwarn << ( int )mBuffer[ i ];
 	}
-	size_t size;
+	size_t size = 0;
 	memcpy( &size, mBuffer, sizeof( size_t ) );
 	free( mBuffer );
 	bciwarn << sizeof( size_t );
@@ -217,7 +217,7 @@ void HyperscanningNetworkLogger::Setup() {
 
 int HyperscanningNetworkLogger::OnExecute() {
 	while ( !Terminating() ) {
-		memset( mBuffer, 0, 1025 );
+		free( mBuffer );
 
 		{
 			std::lock_guard<std::mutex> messageLock(mMessageMutex);
@@ -236,11 +236,25 @@ int HyperscanningNetworkLogger::OnExecute() {
 
 		if (mSocket.Wait()) // will return false when thread is terminating
 		{
-			if (::recv(mSocket.Fd(), mBuffer, 1025, 0) < 0) // read one packet only
-			{
-				bciwarn << "Error reading socket: " << errno;
-				return -1;
+			mBuffer = ( char* ) calloc( sizeof( size_t ), 1 );
+			if ( ::recv(mSocket.Fd(), mBuffer, sizeof( size_t ), 0) < 0 ) {  // read one packet only
+				bciwarn << "Error reading: " << errno;
 			}
+			size_t size = 0;
+			memcpy( &size, mBuffer, sizeof( size_t ) );
+			bciwarn << "size: " << size;
+			free( mBuffer );
+			mBuffer = ( char* ) calloc( size, 1 );
+
+			for ( int i = 0; i < size; i++ ) {
+				mSocket.Wait();
+				if (::recv(mSocket.Fd(), mBuffer + i, 1, 0) < 0) // read one packet only
+				{
+					bciwarn << "Error reading socket: " << errno;
+					return -1;
+				}
+			}
+			bciwarn << "Buffer: " << mBuffer;
 			Interpret(mBuffer);
 		}
 	}
