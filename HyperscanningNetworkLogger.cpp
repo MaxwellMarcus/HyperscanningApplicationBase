@@ -244,7 +244,7 @@ int HyperscanningNetworkLogger::OnExecute() {
 			memcpy( &size, mBuffer, sizeof( size_t ) );
 			bciwarn << "size: " << size;
 			free( mBuffer );
-			mBuffer = ( char* ) calloc( size, 1 );
+			mBuffer = ( char* ) calloc( size + 1, 1 );
 
 			for ( int i = 0; i < size; i++ ) {
 				mSocket.Wait();
@@ -262,7 +262,7 @@ int HyperscanningNetworkLogger::OnExecute() {
 }
 
 void HyperscanningNetworkLogger::Interpret( char* buffer ) {
-	while ( *buffer != '\0' ) {
+	while ( *buffer != 0 ) {
 		std::string name( buffer );
 		buffer += name.size() + 1;
 		char size = *buffer++;
