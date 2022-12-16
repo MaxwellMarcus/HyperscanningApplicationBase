@@ -1,0 +1,4 @@
+SET( BCI2000_SIGSRC_FILES
+	${BCI2000_SIGSRC_FILES}
+	${BCI2000_EXTENSION_DIR}/HyperscanningNetworkLogger.cpp
+)
