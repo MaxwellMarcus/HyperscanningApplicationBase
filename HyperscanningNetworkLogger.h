@@ -38,6 +38,8 @@ class HyperscanningNetworkLogger : public EnvironmentExtension, public Thread {
 //		    return 1;
 //		}
 
+		bool downloadedParms = false;
+
 		bool mLogNetwork;
 
 		std::vector<std::string> mSharedStates;

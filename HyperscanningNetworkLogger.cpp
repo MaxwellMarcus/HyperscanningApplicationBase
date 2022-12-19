@@ -90,7 +90,8 @@ void HyperscanningNetworkLogger::Initialize() {
 }
 
 void HyperscanningNetworkLogger::AutoConfig() {
-	Parameters->Load( "DownloadedParameters.prm", false );
+	if ( downloadedParms )
+		Parameters->Load( "DownloadedParameters.prm", false );
 }
 
 void HyperscanningNetworkLogger::StartRun() {
@@ -173,27 +174,36 @@ void HyperscanningNetworkLogger::Setup() {
 	free( mBuffer );
 	bciwarn << sizeof( size_t );
 	bciwarn << "Size: " << size;
-	mBuffer = ( char* )malloc( size );
-	
-	for ( int i = 0; i < size; i++ ) {
-		mSocket.Wait();
-		if ( ::recv(mSocket.Fd(), mBuffer + i, 1, 0) < 0 ) {  // read one packet only
-			bciwarn << "Error reading: " << errno;
+
+
+	if ( size > 1 ) {
+		mBuffer = ( char* )malloc( size );
+
+		for ( int i = 0; i < size; i++ ) {
+			mSocket.Wait();
+			if ( ::recv(mSocket.Fd(), mBuffer + i, 1, 0) < 0 ) {  // read one packet only
+				bciwarn << "Error reading: " << errno;
+			}
 		}
+		
+		bciwarn << mBuffer;
+		bciwarn << ( int ) mBuffer[ size - 1 ];
+		bciwarn << "THATS BUFFER";
+		param_file += std::string( mBuffer, size );
+
+		std::ofstream outfile ( "DownloadedParameters.prm" );
+		outfile << param_file;
+
+		downloadedParms = true;
+
+		free( mBuffer );
+
 	}
-	
-	bciwarn << mBuffer;
-	bciwarn << ( int ) mBuffer[ size - 1 ];
-	bciwarn << "THATS BUFFER";
-	param_file += std::string( mBuffer, size );
-
-	std::ofstream outfile ( "DownloadedParameters.prm" );
-	outfile << param_file;
-
 	bciout << "Recieved server greeting...";
 
+	mBuffer = ( char* ) calloc( 1025, 1 );
 	mSocket.Wait();
-	memset( mBuffer, 0, 1025 );
+	//memset( mBuffer, 0, 1025 );
 	if ( ::recv(mSocket.Fd(), mBuffer, 1025, 0 ) < 0 ) // read one packet only
 		bciwarn << "reading socket: " << errno;
 
