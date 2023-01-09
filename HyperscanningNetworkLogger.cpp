@@ -108,8 +108,10 @@ void HyperscanningNetworkLogger::Process() {
 	const std::lock_guard<std::mutex> lock2( mStateValuesMutex );
 	mMessage = "";
 
+	bciwarn << "Checking for states that need to be updated";
 	for ( int i = 0; i < mSharedStates.size(); i++ ) {
 		if ( !mHasUpdated[ i ] ) {
+			bciwarn << "Updated state other client changed";
 			State( mSharedStates[ i ] ) = mStateValues[ i ];
 			mHasUpdated[ i ] = true;
 		}
@@ -237,6 +239,7 @@ int HyperscanningNetworkLogger::OnExecute() {
 
 			mMessage.push_back('\0');
 
+			bciwarn << "Writing to server...";
 			if (mSocket.Write(mMessage.c_str(), mMessage.size()) < 0)
 			{
 				bciwarn << "Error writing to socket: " << errno;
@@ -246,6 +249,7 @@ int HyperscanningNetworkLogger::OnExecute() {
 
 		if (mSocket.Wait()) // will return false when thread is terminating
 		{
+			bciwarn << "Reading from server...";
 			mBuffer = ( char* ) calloc( sizeof( size_t ), 1 );
 			if ( ::recv(mSocket.Fd(), mBuffer, sizeof( size_t ), 0) < 0 ) {  // read one packet only
 				bciwarn << "Error reading: " << errno;
@@ -286,8 +290,12 @@ void HyperscanningNetworkLogger::Interpret( char* buffer ) {
 
 		mStateValuesMutex.lock();
 		auto it = find( mSharedStates.begin(), mSharedStates.end(), name );
-		mStateValues[ it - mSharedStates.begin() ] = val;
-		mHasUpdated[ it - mSharedStates.begin() ] = false;
+		if ( it != mSharedStates.end() ) {
+			mStateValues[ it - mSharedStates.begin() ] = val;
+			mHasUpdated[ it - mSharedStates.begin() ] = false;
+		} else {
+			bciwarn << "State is not a part of Hyperscanning Shared States";
+		}
 		mStateValuesMutex.unlock();
 
 		//bcievent << name << " " << val;
