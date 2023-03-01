@@ -130,7 +130,7 @@ void HyperscanningNetworkLogger::Process() {
 			bciwarn << mSharedStates[ i ] << " now is " << val;
 			message.push_back( '\0' );
 			message.push_back( ( char ) s->Length() / 8 );
-			message += std::string( ( char* )( &val ), s->Length() ).c_str();
+			message += std::string( ( char* )( &val ), s->Length() / 8 );
 
 			mMessage += message;
 
@@ -249,6 +249,14 @@ int HyperscanningNetworkLogger::OnExecute() {
 			bciwarn << "Writing to server...";
 			bciwarn << "Size: " << mMessage.size();
 			bciwarn << "Message: " << mMessage;
+
+			std::string out;
+
+			for ( char i : mMessage ) {
+				out += std::to_string( ( int ) i );
+				out += ", ";
+			}
+			bciwarn << out;
 			if (mSocket.Write(mMessage.c_str(), mMessage.size()) < 0)
 			{
 				bciwarn << "Error writing to socket: " << errno;
@@ -280,6 +288,12 @@ int HyperscanningNetworkLogger::OnExecute() {
 				}
 			}
 			bciwarn << "Buffer: " << mBuffer;
+			std::string out;
+			for ( int i = 0; i < size; i++ ) {
+				out += std::to_string( ( int ) mBuffer[ i ] );
+				out += ", ";
+			}
+			bciwarn << out;
 			Interpret(mBuffer);
 		}
 	}
