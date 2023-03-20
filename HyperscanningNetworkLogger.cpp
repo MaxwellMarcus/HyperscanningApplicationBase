@@ -32,14 +32,16 @@ HyperscanningNetworkLogger::~HyperscanningNetworkLogger() {
 }
 
 void HyperscanningNetworkLogger::Publish() {
-	if ( OptionalParameter( "LogNetwork" ) >= 0 ) {
+	if ( OptionalParameter( "LogNetwork" ) > 0 ) {
 		BEGIN_PARAMETER_DEFINITIONS
 			"Source:Hyperscanning%20Network%20Logger int LogNetwork= 1 0 0 1"
 			" // record hyperscanning network states (boolean) ",
-			"Source:Hyperscanning%20Network%20Logger string IPAddress= 10.138.1.182 % % %"
+			"Source:Hyperscanning%20Network%20Logger string IPAddress= 10.39.97.98 % % %"
 			" // IPv4 address of server",
 			"Source:Hyperscanning%20Network%20Logger int Port= 1234 % % %"
 			" // server port",
+			"Source:Hyperscanning%20Network%20Logger string ParameterPath= ../parms/CommunicationTask/HyperScanningParameters.prm % % %"
+			" // IPv4 address of server",
 			//"Source:Hyperscanning%20Network%20Logger string SharedStates= % % % % //shared states"
 		END_PARAMETER_DEFINITIONS
 
@@ -81,20 +83,26 @@ void HyperscanningNetworkLogger::Preflight() const {
 			bcierr << "Must give server address";
 		if ( !OptionalParameter( "Port" ) )
 			bcierr << "Must specify port";
+		if (((std::string)Parameter("ParameterPath")).empty()) {
+			bcierr << "Must give parameter path";
+		}
 	}
 
 }
 
 void HyperscanningNetworkLogger::Initialize() {
 	mLogNetwork = ( OptionalParameter( "LogNetwork" ) > 0 );
+	if (!mLogNetwork) return;
 	bciwarn << "Client Number: " << ( int ) mClientNumber;
 	State( "ClientNumber" ) = mClientNumber;
 
 }
 
 void HyperscanningNetworkLogger::AutoConfig() {
-	if ( downloadedParms )
-		Parameters->Load( "DownloadedParameters.prm", false );
+	if (OptionalParameter("LogNetwork") > 0){
+		if ( downloadedParms )
+			Parameters->Load((std::string)Parameter("ParameterPath"), false);
+	}
 }
 
 void HyperscanningNetworkLogger::StartRun() {
@@ -140,11 +148,13 @@ void HyperscanningNetworkLogger::Process() {
 }
 //
 void HyperscanningNetworkLogger::StopRun() {
+	if (!mLogNetwork) return;
 	bciwarn << "Stop Run";
 	TerminateAndWait();
 }
 
 void HyperscanningNetworkLogger::Halt() {
+	if (!mLogNetwork) return;
 	TerminateAndWait();
 }
 
@@ -200,7 +210,7 @@ void HyperscanningNetworkLogger::Setup() {
 		bciwarn << "THATS BUFFER";
 		param_file += std::string( mBuffer, size );
 
-		std::ofstream outfile ( "DownloadedParameters.prm" );
+		std::ofstream outfile ((std::string)Parameter("ParameterPath"));
 		outfile << param_file;
 
 		downloadedParms = true;
@@ -235,66 +245,68 @@ void HyperscanningNetworkLogger::Setup() {
 }
 
 int HyperscanningNetworkLogger::OnExecute() {
-	while ( !Terminating() ) {
-		free( mBuffer );
-
-		{
-			std::lock_guard<std::mutex> messageLock(mMessageMutex);
-			std::string name(mMessage.c_str());
-			char size = *(mMessage.c_str() + name.size() + 1);
-			char value = *(mMessage.c_str() + name.size() + 2);
-
-			mMessage.push_back('\0');
-
-			bciwarn << "Writing to server...";
-			bciwarn << "Size: " << mMessage.size();
-			bciwarn << "Message: " << mMessage;
-
-			std::string out;
-
-			for ( char i : mMessage ) {
-				out += std::to_string( ( int ) i );
-				out += ", ";
-			}
-			bciwarn << out;
-			if (mSocket.Write(mMessage.c_str(), mMessage.size()) < 0)
-			{
-				bciwarn << "Error writing to socket: " << errno;
-				return -1;
-			}
-
-			mMessage = std::string( "" );
-		}
-
-		if (mSocket.Wait()) // will return false when thread is terminating
-		{
-			bciwarn << "Reading from server...";
-			mBuffer = ( char* ) calloc( sizeof( size_t ), 1 );
-			if ( ::recv(mSocket.Fd(), mBuffer, sizeof( size_t ), 0) < 0 ) {  // read one packet only
-				bciwarn << "Error reading: " << errno;
-			}
-			size_t size = 0;
-			memcpy( &size, mBuffer, sizeof( size_t ) );
-			bciwarn << "size: " << size;
+	if (mLogNetwork){
+		while ( !Terminating() ) {
 			free( mBuffer );
-			mBuffer = ( char* ) calloc( size + 1, 1 );
 
-			for ( int i = 0; i < size; i++ ) {
-				mSocket.Wait();
-				if (::recv(mSocket.Fd(), mBuffer + i, 1, 0) < 0) // read one packet only
+			{
+				std::lock_guard<std::mutex> messageLock(mMessageMutex);
+				std::string name(mMessage.c_str());
+				char size = *(mMessage.c_str() + name.size() + 1);
+				char value = *(mMessage.c_str() + name.size() + 2);
+
+				mMessage.push_back('\0');
+
+				//bciwarn << "Writing to server...";
+				//bciwarn << "Size: " << mMessage.size();
+				//bciwarn << "Message: " << mMessage;
+
+				std::string out;
+
+				for ( char i : mMessage ) {
+					out += std::to_string( ( int ) i );
+					out += ", ";
+				}
+				//bciwarn << out;
+				if (mSocket.Write(mMessage.c_str(), mMessage.size()) < 0)
 				{
-					bciwarn << "Error reading socket: " << errno;
+					bciwarn << "Error writing to socket: " << errno;
 					return -1;
 				}
+
+				mMessage = std::string( "" );
 			}
-			bciwarn << "Buffer: " << mBuffer;
-			std::string out;
-			for ( int i = 0; i < size; i++ ) {
-				out += std::to_string( ( int ) mBuffer[ i ] );
-				out += ", ";
+
+			if (mSocket.Wait()) // will return false when thread is terminating
+			{
+				//bciwarn << "Reading from server...";
+				mBuffer = ( char* ) calloc( sizeof( size_t ), 1 );
+				if ( ::recv(mSocket.Fd(), mBuffer, sizeof( size_t ), 0) < 0 ) {  // read one packet only
+					bciwarn << "Error reading: " << errno;
+				}
+				size_t size = 0;
+				memcpy( &size, mBuffer, sizeof( size_t ) );
+				//bciwarn << "size: " << size;
+				free( mBuffer );
+				mBuffer = ( char* ) calloc( size + 1, 1 );
+
+				for ( int i = 0; i < size; i++ ) {
+					mSocket.Wait();
+					if (::recv(mSocket.Fd(), mBuffer + i, 1, 0) < 0) // read one packet only
+					{
+						bciwarn << "Error reading socket: " << errno;
+						return -1;
+					}
+				}
+				//bciwarn << "Buffer: " << mBuffer;
+				std::string out;
+				for ( int i = 0; i < size; i++ ) {
+					out += std::to_string( ( int ) mBuffer[ i ] );
+					out += ", ";
+				}
+				//bciwarn << out;
+				Interpret(mBuffer);
 			}
-			bciwarn << out;
-			Interpret(mBuffer);
 		}
 	}
 	return 1;
