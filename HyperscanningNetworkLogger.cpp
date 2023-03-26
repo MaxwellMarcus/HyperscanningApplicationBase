@@ -36,7 +36,7 @@ void HyperscanningNetworkLogger::Publish() {
 		BEGIN_PARAMETER_DEFINITIONS
 			"Source:Hyperscanning%20Network%20Logger int LogNetwork= 1 0 0 1"
 			" // record hyperscanning network states (boolean) ",
-			"Source:Hyperscanning%20Network%20Logger string IPAddress= 10.39.97.98 % % %"
+			"Source:Hyperscanning%20Network%20Logger string IPAddress= 10.138.1.182 % % %"
 			" // IPv4 address of server",
 			"Source:Hyperscanning%20Network%20Logger int Port= 1234 % % %"
 			" // server port",
@@ -208,7 +208,7 @@ void HyperscanningNetworkLogger::Setup() {
 		bciwarn << mBuffer;
 		bciwarn << ( int ) mBuffer[ size - 1 ];
 		bciwarn << "THATS BUFFER";
-		param_file += std::string( mBuffer, size );
+		param_file += std::string( mBuffer, size - 1 );
 
 		std::ofstream outfile ((std::string)Parameter("ParameterPath"));
 		outfile << param_file;
