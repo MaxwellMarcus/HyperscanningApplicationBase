@@ -31,6 +31,9 @@ class HyperscanningNetworkLogger : public EnvironmentExtension, public Thread {
 
 		void Interpret( char* );
 
+		size_t GetServerMessageSize();
+		void GetServerMessage( char*, size_t );
+
 	private:
 
 		//int on_create() override;

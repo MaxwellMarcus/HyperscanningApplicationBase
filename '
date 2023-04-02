@@ -22,70 +22,17 @@
 
 Extension( HyperscanningNetworkLogger );
 
-
-
 HyperscanningNetworkLogger::HyperscanningNetworkLogger()
 : mBuffer(nullptr), mLogNetwork( false ) {
 }
-
-
 
 HyperscanningNetworkLogger::~HyperscanningNetworkLogger() {
 	::free(mBuffer);
 	Halt();
 }
 
-
-
-//
-// Get the size of the message from the server
-//
-
-size_t HyperscanningNetworkLogger::GetServerMessageSize() {
-	size_t size = 0;
-
-	if ( mSocket.Wait() ) {
-		mBuffer = ( char* ) calloc( sizeof( size_t ), 1 );
-
-		if ( ::recv(mSocket.Fd(), mBuffer, sizeof( size_t ), 0) < 0 ) {  // read one packet only
-			bciwarn << "Error reading: " << errno;
-		}
-
-		memcpy( &size, mBuffer, sizeof( size_t ) );
-
-		free( mBuffer );
-	}
-
-	return size;
-}
-
-
-
-//
-// Get the message from the server
-//
-
-void HyperscanningNetworkLogger::GetServerMessage( char* buff, size_t size ) {
-	for ( int i = 0; i < size; i++ ) {
-
-		if ( mSocket.Wait() ) {
-			if ( ::recv(mSocket.Fd(), buff + i, 1, 0) < 0 ) {  // read one packet only
-				bciwarn << "Error reading: " << errno;
-			}
-		}
-
-	}
-}
-
-
-
 void HyperscanningNetworkLogger::Publish() {
 	if ( OptionalParameter( "LogNetwork" ) > 0 ) {
-
-		//
-		// Initialize Parameters and local States
-		//
-
 		BEGIN_PARAMETER_DEFINITIONS
 			"Source:Hyperscanning%20Network%20Logger int LogNetwork= 1 0 0 1"
 			" // record hyperscanning network states (boolean) ",
@@ -103,46 +50,35 @@ void HyperscanningNetworkLogger::Publish() {
 		END_EVENT_DEFINITIONS
 
 		BEGIN_STATE_DEFINITIONS
-			"DownloadedParameterFile 1 0 0 0"
+			"DownloadedParameterFile 1 0 % %"
 		END_STATE_DEFINITIONS
 
-		//
-		// Initialize the states shared with the server and other client
-		//
-
-		std::string states( Parameter( "SharedStates" ) ); // get the list of shared states
-
-		std::vector<std::string> sharedStates; // Save the names of each of the states
-
+		//Parameter( "SharedStates" ) = "TrialNumber,8&PhaseNumber,8&BarOneValue,8&BarTwoValue,8&BarOneActive,8&BarTwoActive,8&ResponseValue,8&SenderLock,8&ReceiverLock,8&isReadyStart0,8&isReadyStart1,8";
+		std::string states( Parameter( "SharedStates" ) );
 		std::istringstream f( ( states ) );
 		std::string name;
 		std::string size;
-
+		std::vector<std::string> sharedStates;
+		int i = 0;
 		while ( getline( f, name, ',' ) ) {
-
 			if ( !getline( f, size, '&' ) )
 				bcierr << "Every Shared State must have a size";
-
-			bciout << "Shared State: " << name << ", " << size;
-
+			bciwarn << "Shared State: " << name << ", " << size;
 			BEGIN_EVENT_DEFINITIONS
 				name + " " + size + " 0 0 0"
 			END_EVENT_DEFINITIONS
 
 			sharedStates.push_back( name );
 		}
-
 		mSharedStates = sharedStates;
 		mStateValues = std::vector<uint64_t>( mSharedStates.size(), 0 );
 		mHasUpdated = std::vector<bool>( mSharedStates.size(), true );
 	}
 }
-
-
-
+//
 void HyperscanningNetworkLogger::Preflight() const {
 	if ( OptionalParameter( "LogNetwork" ) > 0 ) {
-		if ( Parameter( "SharedStates" )->NumValues() < 1 )
+		if ( Parameter( "SharedStates" )->NumValues() < 1 )// || Parameter( "SharedStates" )->NumValues() % 2 == 1 )
 			bcierr << "You must have at least one shared state and a name and size for each";
 		if ( !OptionalParameter( "IPAddress" ) )
 			bcierr << "Must give server address";
@@ -155,24 +91,19 @@ void HyperscanningNetworkLogger::Preflight() const {
 
 }
 
-
-
 void HyperscanningNetworkLogger::Initialize() {
 	mLogNetwork = ( OptionalParameter( "LogNetwork" ) > 0 );
 	if (!mLogNetwork) return;
-	bciout << "Client Number: " << ( int ) mClientNumber;
+	bciwarn << "Client Number: " << ( int ) mClientNumber;
 	State( "ClientNumber" ) = mClientNumber;
+
 }
-
-
 
 void HyperscanningNetworkLogger::AutoConfig() {
 	if (OptionalParameter("LogNetwork") > 0){
 		Setup();
 	}
 }
-
-
 
 void HyperscanningNetworkLogger::StartRun() {
 	if (mLogNetwork) {
@@ -181,221 +112,227 @@ void HyperscanningNetworkLogger::StartRun() {
 	}
 }
 
-
-
 void HyperscanningNetworkLogger::Process() {
 	if ( !mLogNetwork ) return;
 
-	// Ensure exclusive access to vectors
 	const std::lock_guard<std::mutex> lock( mMessageMutex );
 	const std::lock_guard<std::mutex> lock2( mStateValuesMutex );
-
-
+	//mMessage = "";
+	//bciwarn << "Checking for states that need to be updated";
 	for ( int i = 0; i < mSharedStates.size(); i++ ) {
-
-		//
-		// Update the local state if the server state has changed
-		//
-
 		if ( !mHasUpdated[ i ] ) {
 
-			bciout << "Updated " << mSharedStates[ i ] << " to " << mStateValues[ i ] << " from the server";
+			bciwarn << "Updated state other client changed";
+			bciwarn << "State: " << mSharedStates[ i ];
+			bciwarn << "State Size: " << State( mSharedStates[ i ] )->Length();
+			bciwarn << "Value Size: " << sizeof( mStateValues[ i ] );
+			bciwarn << "Value: " << mStateValues[ i ];
+
 			State( mSharedStates[ i ] ) = mStateValues[ i ];
+
+			bciwarn << "Has Updated";
+
 			mHasUpdated[ i ] = true;
-
 		}
-
-		//
-		// Update the message for the server with the states that have changed locally
-		//
-
+		std::string message( mSharedStates[ i ] );
 		StateRef s = State( mSharedStates[ i ] );
 		uint64_t val = s;
 		if ( val != mStateValues[ i ] ) {
-			bciout << mSharedStates[ i ] << " locally is  " << val;
 
-			std::string message( mSharedStates[ i ] ); // Add name of state
-			message.push_back( '\0' ); // Followed by a NULL character for termination
+			bciwarn << val << " != " << mStateValues[ i ];
+			bciwarn << mSharedStates[ i ] << " now is " << val;
 
-			message.push_back( ( char ) s->Length() / 8 ); // Add size in bytes
-			message += std::string( ( char* )( &val ), s->Length() / 8 ); // Add value
+			message.push_back( '\0' );
+			message.push_back( ( char ) s->Length() / 8 );
+			message += std::string( ( char* )( &val ), s->Length() / 8 );
 
-			mMessage += message; // Add this segment of the message to the master message
+			mMessage += message;
 
 			mStateValues[ i ] = val;
 		}
 	}
 }
-
-
-
+//
 void HyperscanningNetworkLogger::StopRun() {
 	if (!mLogNetwork) return;
 	bciwarn << "Stop Run";
 	TerminateAndWait();
 }
 
-
-
 void HyperscanningNetworkLogger::Halt() {
 	if (!mLogNetwork) return;
 	TerminateAndWait();
 }
 
+//int HyperscanningNetworkLogger::on_create() {
+//	return m_fd = ::socket( AF_INET, SOCK_STREAM, 0 );
+//}
 
-
-//
-// Set up the connection with the server and set initial values
-//
 
 void HyperscanningNetworkLogger::Setup() {
-
-	//
-	// Establish connection to server
-	//
-
+	//mAddress = "10.138.1.182";
+	//mAddress = "127.0.0.1";
+	//mAddress = "172.20.10.10";
 	mAddress = ( std::string )OptionalParameter( "IPAddress" );
 	mPort = OptionalParameter( "Port" );
 
-	bciout << "Connecting to " << mAddress << ":" << ( unsigned short )mPort;
+	bciwarn << "Connecting to " << mAddress << ":" << ( unsigned short )mPort;
+	bciout << "Open: ";
 
-	mSocket.Open( mAddress, ( unsigned short )mPort ); // Opening socket
+	mSocket.Open( mAddress, ( unsigned short )mPort );
 
 	bciout << "Is open: " << mSocket.IsOpen();
 	bciout << "Address: " << mSocket.Address();
 	bciout << "Connected: " << mSocket.Connected();
 
-	// Ensure connection
 	if ( !mSocket.Connected() ) {
 		bciwarn << "Not connected to server. Try again.";
 		return;
 	} else {
-		bciout << "Connected to server.";
+		bciout << "Connected to server."
 	}
+	bciout << "Awaiting server greeting...";
 
-	//
-	// Download Paramater File
-	//
+	std::string param_file;
+	mSocket.Wait();
+	mBuffer = ( char* ) calloc( sizeof( size_t ), 1 );
+	if ( ::recv(mSocket.Fd(), mBuffer, sizeof( size_t ), 0) < 0 ) {  // read one packet only
+		bciwarn << "Error reading: " << errno;
+	}
+	for ( int i = 0; i < sizeof( size_t ); i++ ) {
+		bciwarn << ( int )mBuffer[ i ];
+	}
+	size_t size = 0;
+	memcpy( &size, mBuffer, sizeof( size_t ) );
+	free( mBuffer );
 
-	bciout << "Awaiting server parameters...";
+	bciwarn << sizeof( size_t );
+	bciwarn << "Size: " << size;
 
-	if ( mSocket.Wait() ) {
 
-		// Get the size of the parameter file from the server
-		size_t size = GetServerMessageSize();
+	if ( size > 1 ) {
+		mBuffer = ( char* )malloc( size );
 
-		bciwarn << sizeof( size_t );
-		bciwarn << "Size: " << size;
-
-		if ( size > 0 ) {
-			mBuffer = ( char* )malloc( size );
-
-			// Get the parameter file from the server
-			GetServerMessage( mBuffer, size );
-
-			// Save the parameter file
-			std::string param_file = std::string( mBuffer, size - 1 );
-			std::ofstream outfile ((std::string)Parameter("ParameterPath"));
-			outfile << param_file;
-
-			State( "DownloadedParameterFile" ) = 1;
-
-			free( mBuffer );
-
+		for ( int i = 0; i < size; i++ ) {
+			mSocket.Wait();
+			if ( ::recv(mSocket.Fd(), mBuffer + i, 1, 0) < 0 ) {  // read one packet only
+				bciwarn << "Error reading: " << errno;
+			}
 		}
-	}
 
-	bciout << "Recieved server parameters.";
+		bciwarn << mBuffer;
+		bciwarn << ( int ) mBuffer[ size - 1 ];
+		bciwarn << "THATS BUFFER";
 
-	//
-	// Get Client Number
-	//
+		param_file += std::string( mBuffer, size - 1 );
 
-	// Get client number message
-	if ( mSocket.Wait() ) {
-		mBuffer = ( char* ) calloc( 1025, 1 );
-		*mBuffer = 'q';
+		std::ofstream outfile ((std::string)Parameter("ParameterPath"));
+		outfile << param_file;
 
-		if ( ::recv(mSocket.Fd(), mBuffer, 1025, 0 ) < 0 ) // read one packet only
-			bciwarn << "reading socket: " << errno;
-
-		char* buffer = mBuffer;
-		std::string name( buffer );
-		buffer += name.size() + 1;
-		char size = *buffer++;
-
-		uint64_t val = 0;
-		memcpy( &val, buffer, size );
-
-		bciout << "ClientNumber: " << ( int )val;
-
-		mClientNumber = val;
+		downloadedParms = true;
 
 		free( mBuffer );
+
 	}
+	bciout << "Recieved server greeting...";
 
+	mBuffer = ( char* ) calloc( 1025, 1 );
+	mSocket.Wait();
+	//memset( mBuffer, 0, 1025 );
+	if ( ::recv(mSocket.Fd(), mBuffer, 1025, 0 ) < 0 ) // read one packet only
+		bciwarn << "reading socket: " << errno;
+
+	char* buffer = mBuffer;
+	while ( *buffer != 0 ) {
+		std::string name( buffer );
+		buffer += name.size() + 1;
+
+		bciwarn << "Name: " << name;
+
+		char size = *buffer++;
+		std::string value( buffer, size );
+		buffer += size;
+
+		uint64_t val = 0;
+		memcpy( &val, value.c_str(), size );
+
+		bciwarn << "ClientNumber: " << ( int )val;
+
+		mClientNumber = val;
+	}
 }
-
-//
-// Run the asynchronous server loop
-//
 
 int HyperscanningNetworkLogger::OnExecute() {
 	if (mLogNetwork){
 		while ( !Terminating() ) {
-			//
-			// Write Message to Server
-			//
+			free( mBuffer );
 
 			{
 				std::lock_guard<std::mutex> messageLock(mMessageMutex);
 				std::string name(mMessage.c_str());
+				char size = *(mMessage.c_str() + name.size() + 1);
+				char value = *(mMessage.c_str() + name.size() + 2);
 
 				mMessage.push_back('\0');
 
+				std::string out;
+
+				for ( char i : mMessage ) {
+					out += std::to_string( ( int ) i );
+					out += ", ";
+				}
+				//bciwarn << out;
 				if (mSocket.Write(mMessage.c_str(), mMessage.size()) < 0)
 				{
 					bciwarn << "Error writing to socket: " << errno;
 					return -1;
 				}
 
-				mMessage = std::string( "" ); // Reset message
+				mMessage = std::string( "" );
 			}
 
-			//
-			// Read Message From Server
-			//
+			if (mSocket.Wait()) // will return false when thread is terminating
+			{
+				mBuffer = ( char* ) calloc( sizeof( size_t ), 1 );
+				if ( ::recv(mSocket.Fd(), mBuffer, sizeof( size_t ), 0) < 0 ) {  // read one packet only
+					bciwarn << "Error reading: " << errno;
+				}
+				size_t size = 0;
+				memcpy( &size, mBuffer, sizeof( size_t ) );
+				free( mBuffer );
+				mBuffer = ( char* ) calloc( size + 1, 1 );
 
-			size_t size = GetServerMessageSize();
+				for ( int i = 0; i < size; i++ ) {
+					mSocket.Wait();
+					if (::recv(mSocket.Fd(), mBuffer + i, 1, 0) < 0) // read one packet only
+					{
+						bciwarn << "Error reading socket: " << errno;
+						return -1;
+					}
+				}
 
-			mBuffer = ( char* ) calloc( size + 1, 1 );
-			GetServerMessage( mBuffer, size );
+				std::string out;
+				for ( int i = 0; i < size; i++ ) {
+					out += std::to_string( ( int ) mBuffer[ i ] );
+					out += ", ";
+				}
 
-			Interpret(mBuffer);
-			free( mBuffer );
-
+				Interpret(mBuffer);
+			}
 		}
 	}
 	return 1;
 }
 
-
-
-//
-// Interpret the buffer downloaded from the server
-//
-
 void HyperscanningNetworkLogger::Interpret( char* buffer ) {
 	while ( *buffer != 0 ) {
-
-		// Get State Name and Size
 		std::string name( buffer );
 		buffer += name.size() + 1;
 		char size = *buffer++;
 
-		if ( size == 0 ) continue;
+		bciwarn << "Incoming value size: " << ( int )size;
 
-		// Get State Value
+		if ( size == 0 ) continue;
 		std::string value( buffer, size );
 		buffer += size;
 
@@ -404,7 +341,6 @@ void HyperscanningNetworkLogger::Interpret( char* buffer ) {
 
 		bciwarn << name << ": " << val;
 
-		// Set state to be updated to new value
 		mStateValuesMutex.lock();
 		auto it = find( mSharedStates.begin(), mSharedStates.end(), name );
 		if ( it != mSharedStates.end() ) {
@@ -415,5 +351,7 @@ void HyperscanningNetworkLogger::Interpret( char* buffer ) {
 		}
 		mStateValuesMutex.unlock();
 
+		//bcievent << name << " " << val;
 	}
 }
+
