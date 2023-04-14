@@ -11,6 +11,7 @@
 #include <iostream>
 #include <fstream>
 #include <vector>
+#include <stdio.h>
 
 #if _WIN32
 #include <Winsock2.h>
@@ -95,7 +96,6 @@ void HyperscanningNetworkLogger::Publish() {
 			" // server port",
 			"Source:Hyperscanning%20Network%20Logger string ParameterPath= ../parms/CommunicationTask/HyperScanningParameters.prm % % %"
 			" // IPv4 address of server",
-			//"Source:Hyperscanning%20Network%20Logger string SharedStates= % % % % //shared states"
 		END_PARAMETER_DEFINITIONS
 
 		BEGIN_EVENT_DEFINITIONS
@@ -135,6 +135,8 @@ void HyperscanningNetworkLogger::Publish() {
 		mSharedStates = sharedStates;
 		mStateValues = std::vector<uint64_t>( mSharedStates.size(), 0 );
 		mHasUpdated = std::vector<bool>( mSharedStates.size(), true );
+
+		remove( "../parms/CommunicationTask/HyperScanningParameters.prm" );
 	}
 }
 
@@ -295,10 +297,13 @@ void HyperscanningNetworkLogger::Setup() {
 
 			// Save the parameter file
 			std::string param_file = std::string( mBuffer, size - 1 );
-			std::ofstream outfile ((std::string)Parameter("ParameterPath"));
+			std::ofstream outfile ( "../parms/CommunicationTask/HyperScanningParameters.prm" );
 			outfile << param_file;
 
+			bciwarn << "Dowloaded Parameter File: " << State( "DownloadedParameterFile" );
 			State( "DownloadedParameterFile" ) = 1;
+			bciwarn << "DownloadedParamter File After Change: " << State( "DownloadedParameterFile" );
+
 
 			free( mBuffer );
 
