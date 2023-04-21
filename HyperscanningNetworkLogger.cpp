@@ -253,6 +253,12 @@ void HyperscanningNetworkLogger::Halt() {
 void HyperscanningNetworkLogger::Setup() {
 
 	//
+	// Avoid Connecting Twice
+	//
+
+	if ( mSocket.IsOpen() ) return;
+
+	//
 	// Establish connection to server
 	//
 
