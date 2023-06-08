@@ -68,13 +68,21 @@ size_t HyperscanningNetworkLogger::GetServerMessageSize() {
 
 void HyperscanningNetworkLogger::GetServerMessage( char* buff, size_t size ) {
 	for ( int i = 0; i < size; i++ ) {
+		struct timeval time;
+		time.tv_sec = 0;
+		time.tv_usec = 0;
 
-		if ( mSocket.Wait() ) {
-			if ( ::recv(mSocket.Fd(), buff + i, 1, 0) < 0 ) {  // read one packet only
-				bciwarn << "Error reading: " << errno;
+		fd_set readfds;
+		FD_ZERO( &readfds );
+		FD_SET( mSocket.Fd(), &readfds );
+
+		if ( select( mSocket.Fd() + 1, &readfds, NULL, NULL, &time ) ) {
+			if ( mSocket.Wait() ) {
+				if ( ::recv(mSocket.Fd(), buff + i, 1, 0) < 0 ) {  // read one packet only
+					bciwarn << "Error reading: " << errno;
+				}
 			}
 		}
-
 	}
 }
 
@@ -90,7 +98,7 @@ void HyperscanningNetworkLogger::Publish() {
 		BEGIN_PARAMETER_DEFINITIONS
 			"Source:Hyperscanning%20Network%20Logger int LogNetwork= 1 0 0 1"
 			" // record hyperscanning network states (boolean) ",
-			"Source:Hyperscanning%20Network%20Logger string IPAddress= 10.138.1.182 % % %"
+			"Source:Hyperscanning%20Network%20Logger string IPAddress= 10.138.1.104 % % %"
 			" // IPv4 address of server",
 			"Source:Hyperscanning%20Network%20Logger int Port= 1234 % % %"
 			" // server port",
@@ -169,6 +177,7 @@ void HyperscanningNetworkLogger::Initialize() {
 
 
 void HyperscanningNetworkLogger::AutoConfig() {
+	bciwarn << "this autoconfig";
 	if (OptionalParameter("LogNetwork") > 0){
 		Setup();
 	}
@@ -362,15 +371,18 @@ int HyperscanningNetworkLogger::OnExecute() {
 				std::lock_guard<std::mutex> messageLock(mMessageMutex);
 				std::string name(mMessage.c_str());
 
-				mMessage.push_back('\0');
+				if ( mMessage.size() > 0 ) {
 
-				if (mSocket.Write(mMessage.c_str(), mMessage.size()) < 0)
-				{
-					bciwarn << "Error writing to socket: " << errno;
-					return -1;
+					mMessage.push_back('\0');
+
+					if (mSocket.Write(mMessage.c_str(), mMessage.size()) < 0)
+					{
+						bciwarn << "Error writing to socket: " << errno;
+						return -1;
+					}
+
+					mMessage = std::string( "" ); // Reset message
 				}
-
-				mMessage = std::string( "" ); // Reset message
 			}
 
 			//
@@ -398,6 +410,7 @@ int HyperscanningNetworkLogger::OnExecute() {
 
 void HyperscanningNetworkLogger::Interpret( char* buffer ) {
 	while ( *buffer != 0 ) {
+		bciwarn << "Buffer: " << buffer;
 
 		// Get State Name and Size
 		std::string name( buffer );
