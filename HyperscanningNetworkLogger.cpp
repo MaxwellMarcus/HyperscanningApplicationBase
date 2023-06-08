@@ -45,16 +45,26 @@ HyperscanningNetworkLogger::~HyperscanningNetworkLogger() {
 size_t HyperscanningNetworkLogger::GetServerMessageSize() {
 	size_t size = 0;
 
-	if ( mSocket.Wait() ) {
-		mBuffer = ( char* ) calloc( sizeof( size_t ), 1 );
+	struct timeval time;
+	time.tv_sec = 0;
+	time.tv_usec = 0;
 
-		if ( ::recv(mSocket.Fd(), mBuffer, sizeof( size_t ), 0) < 0 ) {  // read one packet only
-			bciwarn << "Error reading: " << errno;
+	fd_set readfds;
+	FD_ZERO( &readfds );
+	FD_SET( mSocket.Fd(), &readfds );
+
+	if ( select( mSocket.Fd() + 1, &readfds, NULL, NULL, &time ) ) {
+		if ( mSocket.Wait() ) {
+			mBuffer = ( char* ) calloc( sizeof( size_t ), 1 );
+
+			if ( ::recv(mSocket.Fd(), mBuffer, sizeof( size_t ), 0) < 0 ) {  // read one packet only
+				bciwarn << "Error reading: " << errno;
+			}
+
+			memcpy( &size, mBuffer, sizeof( size_t ) );
+
+			free( mBuffer );
 		}
-
-		memcpy( &size, mBuffer, sizeof( size_t ) );
-
-		free( mBuffer );
 	}
 
 	return size;
@@ -375,6 +385,8 @@ int HyperscanningNetworkLogger::OnExecute() {
 
 					mMessage.push_back('\0');
 
+					bciwarn << "Writing: " << mMessage;
+
 					if (mSocket.Write(mMessage.c_str(), mMessage.size()) < 0)
 					{
 						bciwarn << "Error writing to socket: " << errno;
@@ -389,13 +401,20 @@ int HyperscanningNetworkLogger::OnExecute() {
 			// Read Message From Server
 			//
 
+			bciwarn << "Getting Size";
+
 			size_t size = GetServerMessageSize();
+			bciwarn << "Size: " << size;
 
-			mBuffer = ( char* ) calloc( size + 1, 1 );
-			GetServerMessage( mBuffer, size );
+			if ( size > 0 ) {
+				mBuffer = ( char* ) calloc( size + 1, 1 );
+				GetServerMessage( mBuffer, size );
 
-			Interpret(mBuffer);
-			free( mBuffer );
+				Interpret(mBuffer);
+				free( mBuffer );
+			}
+
+			bciwarn << "Looping";
 
 		}
 	}
