@@ -78,19 +78,9 @@ size_t HyperscanningNetworkLogger::GetServerMessageSize() {
 
 void HyperscanningNetworkLogger::GetServerMessage( char* buff, size_t size ) {
 	for ( int i = 0; i < size; i++ ) {
-		struct timeval time;
-		time.tv_sec = 0;
-		time.tv_usec = 0;
-
-		fd_set readfds;
-		FD_ZERO( &readfds );
-		FD_SET( mSocket.Fd(), &readfds );
-
-		if ( select( mSocket.Fd() + 1, &readfds, NULL, NULL, &time ) ) {
-			if ( mSocket.Wait() ) {
-				if ( ::recv(mSocket.Fd(), buff + i, 1, 0) < 0 ) {  // read one packet only
-					bciwarn << "Error reading: " << errno;
-				}
+		if ( mSocket.Wait() ) {
+			if ( ::recv(mSocket.Fd(), buff + i, 1, 0) < 0 ) {  // read one packet only
+				bciwarn << "Error reading: " << errno;
 			}
 		}
 	}
@@ -194,6 +184,7 @@ void HyperscanningNetworkLogger::AutoConfig(const SignalProperties& Input) {
 void HyperscanningNetworkLogger::StartRun() {
 	if (mLogNetwork) {
 		bciwarn << "Starting Network Thread";
+		State( "ClientNumber" ) = mClientNumber;
 		Start();
 	}
 }
@@ -410,6 +401,8 @@ int HyperscanningNetworkLogger::OnExecute() {
 				bciwarn << "Size: " << size;
 				mBuffer = ( char* ) calloc( size + 1, 1 );
 				GetServerMessage( mBuffer, size );
+
+				bciwarn << "Message: " << mBuffer;
 
 				Interpret(mBuffer);
 				free( mBuffer );
