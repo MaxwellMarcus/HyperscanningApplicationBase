@@ -1,4 +1,4 @@
-#include "HyperscanningNetworkLogger.h"
+#include "HyperscanningApplicationBase.h"
 #include "BCIStream.h"
 #include "Thread.h"
 #include "BCIEvent.h"
@@ -21,17 +21,17 @@
 #include <sys/socket.h>
 #endif
 
-//Extension( HyperscanningNetworkLogger );
+//Extension( HyperscanningApplicationBase );
 
 
 
-HyperscanningNetworkLogger::HyperscanningNetworkLogger()
+HyperscanningApplicationBase::HyperscanningApplicationBase()
 : mBuffer(nullptr), mLogNetwork( false ) {
 }
 
 
 
-HyperscanningNetworkLogger::~HyperscanningNetworkLogger() {
+HyperscanningApplicationBase::~HyperscanningApplicationBase() {
 	::free(mBuffer);
 	Halt();
 }
@@ -42,7 +42,7 @@ HyperscanningNetworkLogger::~HyperscanningNetworkLogger() {
 // Get the size of the message from the server
 //
 
-size_t HyperscanningNetworkLogger::GetServerMessageSize() {
+size_t HyperscanningApplicationBase::GetServerMessageSize() {
 	size_t size = 0;
 
 	struct timeval time;
@@ -76,7 +76,7 @@ size_t HyperscanningNetworkLogger::GetServerMessageSize() {
 // Get the message from the server
 //
 
-void HyperscanningNetworkLogger::GetServerMessage( char* buff, size_t size ) {
+void HyperscanningApplicationBase::GetServerMessage( char* buff, size_t size ) {
 	for ( int i = 0; i < size; i++ ) {
 		if ( mSocket.Wait() ) {
 			if ( ::recv(mSocket.Fd(), buff + i, 1, 0) < 0 ) {  // read one packet only
@@ -88,7 +88,7 @@ void HyperscanningNetworkLogger::GetServerMessage( char* buff, size_t size ) {
 
 
 
-void HyperscanningNetworkLogger::Publish() {
+void HyperscanningApplicationBase::Publish() {
 	if ( OptionalParameter( "LogNetwork" ) > 0 ) {
 
 		//
@@ -148,7 +148,7 @@ void HyperscanningNetworkLogger::Publish() {
 
 
 
-void HyperscanningNetworkLogger::Preflight( const SignalProperties& Input, SignalProperties& Output ) const {
+void HyperscanningApplicationBase::Preflight( const SignalProperties& Input, SignalProperties& Output ) const {
 	if ( OptionalParameter( "LogNetwork" ) > 0 ) {
 		if ( Parameter( "SharedStates" )->NumValues() < 1 )
 			bcierr << "You must have at least one shared state and a name and size for each";
@@ -167,7 +167,7 @@ void HyperscanningNetworkLogger::Preflight( const SignalProperties& Input, Signa
 
 
 
-void HyperscanningNetworkLogger::Initialize(const SignalProperties& Input, const SignalProperties& Output) {
+void HyperscanningApplicationBase::Initialize(const SignalProperties& Input, const SignalProperties& Output) {
 	mLogNetwork = ( OptionalParameter( "LogNetwork" ) > 0 );
 	if (!mLogNetwork) return;
 	bciout << "Client Number: " << ( int ) mClientNumber;
@@ -178,7 +178,7 @@ void HyperscanningNetworkLogger::Initialize(const SignalProperties& Input, const
 
 
 
-void HyperscanningNetworkLogger::AutoConfig(const SignalProperties& Input) {
+void HyperscanningApplicationBase::AutoConfig(const SignalProperties& Input) {
 	bciwarn << "this autoconfig";
 	if (OptionalParameter("LogNetwork") > 0){
 		Setup();
@@ -189,7 +189,7 @@ void HyperscanningNetworkLogger::AutoConfig(const SignalProperties& Input) {
 
 
 
-void HyperscanningNetworkLogger::StartRun() {
+void HyperscanningApplicationBase::StartRun() {
 	if (mLogNetwork) {
 		bciwarn << "Starting Network Thread";
 		State( "ClientNumber" ) = mClientNumber;
@@ -199,10 +199,10 @@ void HyperscanningNetworkLogger::StartRun() {
 
 
 
-//void HyperscanningNetworkLogger::Process(const GenericSignal& Input, GenericSignal& Output) {
+//void HyperscanningApplicationBase::Process(const GenericSignal& Input, GenericSignal& Output) {
 //	if ( !mLogNetwork ) return;
 
-void HyperscanningNetworkLogger::UpdateStates() {
+void HyperscanningApplicationBase::UpdateStates() {
 	// Ensure exclusive access to vectors
 	const std::lock_guard<std::mutex> lock( mMessageMutex );
 	const std::lock_guard<std::mutex> lock2( mStateValuesMutex );
@@ -225,7 +225,7 @@ void HyperscanningNetworkLogger::UpdateStates() {
 	}
 }
 
-void HyperscanningNetworkLogger::UpdateMessage() {
+void HyperscanningApplicationBase::UpdateMessage() {
 	const std::lock_guard<std::mutex> lock( mMessageMutex );
 	const std::lock_guard<std::mutex> lock2( mStateValuesMutex );
 
@@ -256,7 +256,7 @@ void HyperscanningNetworkLogger::UpdateMessage() {
 
 
 
-void HyperscanningNetworkLogger::StopRun() {
+void HyperscanningApplicationBase::StopRun() {
 	if (!mLogNetwork) return;
 	bciwarn << "Stop Run";
 	TerminateAndWait();
@@ -265,7 +265,7 @@ void HyperscanningNetworkLogger::StopRun() {
 
 
 
-void HyperscanningNetworkLogger::Halt() {
+void HyperscanningApplicationBase::Halt() {
 	if (!mLogNetwork) return;
 	TerminateAndWait();
 	SharedHalt();
@@ -277,7 +277,7 @@ void HyperscanningNetworkLogger::Halt() {
 // Set up the connection with the server and set initial values
 //
 
-void HyperscanningNetworkLogger::Setup() {
+void HyperscanningApplicationBase::Setup() {
 
 	//
 	// Avoid Connecting Twice
@@ -373,7 +373,7 @@ void HyperscanningNetworkLogger::Setup() {
 // Run the asynchronous server loop
 //
 
-int HyperscanningNetworkLogger::OnExecute() {
+int HyperscanningApplicationBase::OnExecute() {
 	if (mLogNetwork){
 		while ( !Terminating() ) {
 			//
@@ -429,7 +429,7 @@ int HyperscanningNetworkLogger::OnExecute() {
 // Interpret the buffer downloaded from the server
 //
 
-void HyperscanningNetworkLogger::Interpret( char* buffer ) {
+void HyperscanningApplicationBase::Interpret( char* buffer ) {
 	while ( *buffer != 0 ) {
 		bciwarn << "Buffer: " << buffer;
 
@@ -465,7 +465,7 @@ void HyperscanningNetworkLogger::Interpret( char* buffer ) {
 }
 
 
-void HyperscanningNetworkLogger::Process( const GenericSignal& Input, GenericSignal& Output ) {
+void HyperscanningApplicationBase::Process( const GenericSignal& Input, GenericSignal& Output ) {
 	UpdateStates();
 
 	SharedProcess( Input, Output );
@@ -473,16 +473,16 @@ void HyperscanningNetworkLogger::Process( const GenericSignal& Input, GenericSig
 	UpdateMessage();
 }
 
-void HyperscanningNetworkLogger::Resting() {
+void HyperscanningApplicationBase::Resting() {
 	SharedResting();
 }
 
-void HyperscanningNetworkLogger::SharedPublish() {}
-void HyperscanningNetworkLogger::SharedAutoConfig( const SignalProperties& Input ) {}
-void HyperscanningNetworkLogger::SharedPreflight( const SignalProperties& Input, SignalProperties& Output ) const {}
-void HyperscanningNetworkLogger::SharedInitialize( const SignalProperties& Input, const SignalProperties& Output ) {}
-void HyperscanningNetworkLogger::SharedStartRun() {}
-void HyperscanningNetworkLogger::SharedProcess( const GenericSignal& Input, GenericSignal& Output ) {}
-void HyperscanningNetworkLogger::SharedResting() {}
-void HyperscanningNetworkLogger::SharedStopRun() {}
-void HyperscanningNetworkLogger::SharedHalt() {}
+void HyperscanningApplicationBase::SharedPublish() {}
+void HyperscanningApplicationBase::SharedAutoConfig( const SignalProperties& Input ) {}
+void HyperscanningApplicationBase::SharedPreflight( const SignalProperties& Input, SignalProperties& Output ) const {}
+void HyperscanningApplicationBase::SharedInitialize( const SignalProperties& Input, const SignalProperties& Output ) {}
+void HyperscanningApplicationBase::SharedStartRun() {}
+void HyperscanningApplicationBase::SharedProcess( const GenericSignal& Input, GenericSignal& Output ) {}
+void HyperscanningApplicationBase::SharedResting() {}
+void HyperscanningApplicationBase::SharedStopRun() {}
+void HyperscanningApplicationBase::SharedHalt() {}

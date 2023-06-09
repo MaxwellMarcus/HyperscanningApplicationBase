@@ -12,10 +12,10 @@ class HyperscanningNetworkThread : public Thread {
 	private:
 };
 
-class HyperscanningNetworkLogger : public ApplicationBase, public Thread {
+class HyperscanningApplicationBase : public ApplicationBase, public Thread {
 	public:
-		HyperscanningNetworkLogger();
-		~HyperscanningNetworkLogger();
+		HyperscanningApplicationBase();
+		~HyperscanningApplicationBase();
 
 		void Publish() override;
 		void AutoConfig( const SignalProperties& Input ) override;
