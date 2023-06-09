@@ -1,7 +1,7 @@
 #ifndef NETWORK_LOGGER_H
 #define NETWORK_LOGGER_H
 
-#include "Environment.h"
+#include "ApplicationBase.h"
 #include "Thread.h"
 #include "Sockets.h"
 #include <atomic>
@@ -12,19 +12,20 @@ class HyperscanningNetworkThread : public Thread {
 	private:
 };
 
-class HyperscanningNetworkLogger : public EnvironmentExtension, public Thread {
+class HyperscanningNetworkLogger : public ApplicationBase, public Thread {
 	public:
 		HyperscanningNetworkLogger();
 		~HyperscanningNetworkLogger();
 
-		void Publish() override;
-		void AutoConfig() override;
-		void Preflight() const override;
-		void Initialize() override;
-		void StartRun() override;
-		void Process() override;
-		void StopRun() override;
-		void Halt() override;
+		virtual void Publish() override;
+		virtual void AutoConfig( const SignalProperties& Input ) override;
+		virtual void Preflight( const SignalProperties& Input, SignalProperties& Output ) const override;
+		virtual void Initialize( const SignalProperties& Input, const SignalProperties& Output ) override;
+		virtual void StartRun() override;
+		void UpdateStates();
+		void UpdateMessage();
+		virtual void StopRun() override;
+		virtual void Halt() override;
 
 		int OnExecute() override;
 		void Setup();

@@ -21,7 +21,7 @@
 #include <sys/socket.h>
 #endif
 
-Extension( HyperscanningNetworkLogger );
+//Extension( HyperscanningNetworkLogger );
 
 
 
@@ -47,7 +47,7 @@ size_t HyperscanningNetworkLogger::GetServerMessageSize() {
 
 	struct timeval time;
 	time.tv_sec = 0;
-	time.tv_usec = 0;
+	time.tv_usec = 5000;
 
 	fd_set readfds;
 	FD_ZERO( &readfds );
@@ -116,12 +116,8 @@ void HyperscanningNetworkLogger::Publish() {
 			" // IPv4 address of server",
 		END_PARAMETER_DEFINITIONS
 
-		BEGIN_EVENT_DEFINITIONS
-			"ClientNumber 8 0 0 0"
-		END_EVENT_DEFINITIONS
-
 		BEGIN_STATE_DEFINITIONS
-			"DownloadedParameterFile 1 0 0 0"
+			"ClientNumber 8 0 0 0"
 		END_STATE_DEFINITIONS
 
 		//
@@ -143,9 +139,9 @@ void HyperscanningNetworkLogger::Publish() {
 
 			bciout << "Shared State: " << name << ", " << size;
 
-			BEGIN_EVENT_DEFINITIONS
+			BEGIN_STATE_DEFINITIONS
 				name + " " + size + " 0 0 0"
-			END_EVENT_DEFINITIONS
+			END_STATE_DEFINITIONS
 
 			sharedStates.push_back( name );
 		}
@@ -160,7 +156,7 @@ void HyperscanningNetworkLogger::Publish() {
 
 
 
-void HyperscanningNetworkLogger::Preflight() const {
+void HyperscanningNetworkLogger::Preflight( const SignalProperties& Input, SignalProperties& Output ) const {
 	if ( OptionalParameter( "LogNetwork" ) > 0 ) {
 		if ( Parameter( "SharedStates" )->NumValues() < 1 )
 			bcierr << "You must have at least one shared state and a name and size for each";
@@ -177,7 +173,7 @@ void HyperscanningNetworkLogger::Preflight() const {
 
 
 
-void HyperscanningNetworkLogger::Initialize() {
+void HyperscanningNetworkLogger::Initialize(const SignalProperties& Input, const SignalProperties& Output) {
 	mLogNetwork = ( OptionalParameter( "LogNetwork" ) > 0 );
 	if (!mLogNetwork) return;
 	bciout << "Client Number: " << ( int ) mClientNumber;
@@ -186,7 +182,7 @@ void HyperscanningNetworkLogger::Initialize() {
 
 
 
-void HyperscanningNetworkLogger::AutoConfig() {
+void HyperscanningNetworkLogger::AutoConfig(const SignalProperties& Input) {
 	bciwarn << "this autoconfig";
 	if (OptionalParameter("LogNetwork") > 0){
 		Setup();
@@ -204,9 +200,10 @@ void HyperscanningNetworkLogger::StartRun() {
 
 
 
-void HyperscanningNetworkLogger::Process() {
-	if ( !mLogNetwork ) return;
+//void HyperscanningNetworkLogger::Process(const GenericSignal& Input, GenericSignal& Output) {
+//	if ( !mLogNetwork ) return;
 
+void HyperscanningNetworkLogger::UpdateStates() {
 	// Ensure exclusive access to vectors
 	const std::lock_guard<std::mutex> lock( mMessageMutex );
 	const std::lock_guard<std::mutex> lock2( mStateValuesMutex );
@@ -221,11 +218,19 @@ void HyperscanningNetworkLogger::Process() {
 		if ( !mHasUpdated[ i ] ) {
 
 			bciout << "Updated " << mSharedStates[ i ] << " to " << mStateValues[ i ] << " from the server";
+			bciout << "Time: " << std::chrono::duration_cast<std::chrono::milliseconds>( std::chrono::system_clock::now().time_since_epoch() ).count();
 			State( mSharedStates[ i ] ) = mStateValues[ i ];
 			mHasUpdated[ i ] = true;
 
 		}
+	}
+}
 
+void HyperscanningNetworkLogger::UpdateMessage() {
+	const std::lock_guard<std::mutex> lock( mMessageMutex );
+	const std::lock_guard<std::mutex> lock2( mStateValuesMutex );
+
+	for ( int i = 0; i < mSharedStates.size(); i++ ) {
 		//
 		// Update the message for the server with the states that have changed locally
 		//
@@ -244,6 +249,8 @@ void HyperscanningNetworkLogger::Process() {
 			mMessage += message; // Add this segment of the message to the master message
 
 			mStateValues[ i ] = val;
+			bciout << "Updated Message";
+			bciout << "Time: " << std::chrono::duration_cast<std::chrono::milliseconds>( std::chrono::system_clock::now().time_since_epoch() ).count();
 		}
 	}
 }
@@ -325,11 +332,6 @@ void HyperscanningNetworkLogger::Setup() {
 			std::ofstream outfile ( "../parms/CommunicationTask/HyperScanningParameters.prm" );
 			outfile << param_file;
 
-			bciwarn << "Dowloaded Parameter File: " << State( "DownloadedParameterFile" );
-			State( "DownloadedParameterFile" ) = 1;
-			bciwarn << "DownloadedParamter File After Change: " << State( "DownloadedParameterFile" );
-
-
 			free( mBuffer );
 
 		}
@@ -386,6 +388,7 @@ int HyperscanningNetworkLogger::OnExecute() {
 					mMessage.push_back('\0');
 
 					bciwarn << "Writing: " << mMessage;
+					bciout << "Time: " << std::chrono::duration_cast<std::chrono::milliseconds>( std::chrono::system_clock::now().time_since_epoch() ).count();
 
 					if (mSocket.Write(mMessage.c_str(), mMessage.size()) < 0)
 					{
@@ -401,20 +404,16 @@ int HyperscanningNetworkLogger::OnExecute() {
 			// Read Message From Server
 			//
 
-			bciwarn << "Getting Size";
-
 			size_t size = GetServerMessageSize();
-			bciwarn << "Size: " << size;
 
 			if ( size > 0 ) {
+				bciwarn << "Size: " << size;
 				mBuffer = ( char* ) calloc( size + 1, 1 );
 				GetServerMessage( mBuffer, size );
 
 				Interpret(mBuffer);
 				free( mBuffer );
 			}
-
-			bciwarn << "Looping";
 
 		}
 	}
@@ -446,6 +445,7 @@ void HyperscanningNetworkLogger::Interpret( char* buffer ) {
 		memcpy( &val, value.c_str(), size );
 
 		bciwarn << name << ": " << val;
+		bciout << "Time: " << std::chrono::duration_cast<std::chrono::milliseconds>( std::chrono::system_clock::now().time_since_epoch() ).count();
 
 		// Set state to be updated to new value
 		mStateValuesMutex.lock();
