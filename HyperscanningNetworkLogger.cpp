@@ -142,6 +142,8 @@ void HyperscanningNetworkLogger::Publish() {
 
 		remove( "../parms/CommunicationTask/HyperScanningParameters.prm" );
 	}
+
+	SharedPublish();
 }
 
 
@@ -159,6 +161,8 @@ void HyperscanningNetworkLogger::Preflight( const SignalProperties& Input, Signa
 		}
 	}
 
+	SharedPreflight( Input, Output );
+
 }
 
 
@@ -168,6 +172,8 @@ void HyperscanningNetworkLogger::Initialize(const SignalProperties& Input, const
 	if (!mLogNetwork) return;
 	bciout << "Client Number: " << ( int ) mClientNumber;
 	State( "ClientNumber" ) = mClientNumber;
+
+	SharedInitialize( Input, Output );
 }
 
 
@@ -177,6 +183,8 @@ void HyperscanningNetworkLogger::AutoConfig(const SignalProperties& Input) {
 	if (OptionalParameter("LogNetwork") > 0){
 		Setup();
 	}
+
+	SharedAutoConfig( Input );
 }
 
 
@@ -252,6 +260,7 @@ void HyperscanningNetworkLogger::StopRun() {
 	if (!mLogNetwork) return;
 	bciwarn << "Stop Run";
 	TerminateAndWait();
+	SharedStopRun();
 }
 
 
@@ -259,6 +268,7 @@ void HyperscanningNetworkLogger::StopRun() {
 void HyperscanningNetworkLogger::Halt() {
 	if (!mLogNetwork) return;
 	TerminateAndWait();
+	SharedHalt();
 }
 
 
@@ -453,3 +463,26 @@ void HyperscanningNetworkLogger::Interpret( char* buffer ) {
 
 	}
 }
+
+
+void HyperscanningNetworkLogger::Process( const GenericSignal& Input, GenericSignal& Output ) {
+	UpdateStates();
+
+	SharedProcess( Input, Output );
+
+	UpdateMessage();
+}
+
+void HyperscanningNetworkLogger::Resting() {
+	SharedResting();
+}
+
+void HyperscanningNetworkLogger::SharedPublish() {}
+void HyperscanningNetworkLogger::SharedAutoConfig( const SignalProperties& Input ) {}
+void HyperscanningNetworkLogger::SharedPreflight( const SignalProperties& Input, SignalProperties& Output ) const {}
+void HyperscanningNetworkLogger::SharedInitialize( const SignalProperties& Input, const SignalProperties& Output ) {}
+void HyperscanningNetworkLogger::SharedStartRun() {}
+void HyperscanningNetworkLogger::SharedProcess( const GenericSignal& Input, GenericSignal& Output ) {}
+void HyperscanningNetworkLogger::SharedResting() {}
+void HyperscanningNetworkLogger::SharedStopRun() {}
+void HyperscanningNetworkLogger::SharedHalt() {}

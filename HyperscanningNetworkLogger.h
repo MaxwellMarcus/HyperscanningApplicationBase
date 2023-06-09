@@ -17,18 +17,31 @@ class HyperscanningNetworkLogger : public ApplicationBase, public Thread {
 		HyperscanningNetworkLogger();
 		~HyperscanningNetworkLogger();
 
-		virtual void Publish() override;
-		virtual void AutoConfig( const SignalProperties& Input ) override;
-		virtual void Preflight( const SignalProperties& Input, SignalProperties& Output ) const override;
-		virtual void Initialize( const SignalProperties& Input, const SignalProperties& Output ) override;
-		virtual void StartRun() override;
-		void UpdateStates();
-		void UpdateMessage();
-		virtual void StopRun() override;
-		virtual void Halt() override;
+		void Publish() override;
+		void AutoConfig( const SignalProperties& Input ) override;
+		void Preflight( const SignalProperties& Input, SignalProperties& Output ) const override;
+		void Initialize( const SignalProperties& Input, const SignalProperties& Output ) override;
+		void StartRun() override;
+		void Process( const GenericSignal& Input, GenericSignal& Output ) override;
+		void StopRun() override;
+		void Halt() override;
+		void Resting() override;
+
+		virtual void SharedPublish();
+		virtual void SharedAutoConfig( const SignalProperties& Input );
+		virtual void SharedPreflight( const SignalProperties& Input, SignalProperties& Output ) const;
+		virtual void SharedInitialize( const SignalProperties& Input, const SignalProperties& Output );
+		virtual void SharedStartRun();
+		virtual void SharedProcess( const GenericSignal& Input, GenericSignal& Output );
+		virtual void SharedResting();
+		virtual void SharedStopRun();
+		virtual void SharedHalt();
+
 
 		int OnExecute() override;
 		void Setup();
+		void UpdateStates();
+		void UpdateMessage();
 
 		void Interpret( char* );
 
