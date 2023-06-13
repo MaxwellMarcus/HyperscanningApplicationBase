@@ -104,6 +104,8 @@ void HyperscanningApplicationBase::Publish() {
 			" // server port",
 			"Application:Hyperscanning%20Network%20Logger string ParameterPath= ../parms/CommunicationTask/HyperScanningParameters.prm % % %"
 			" // IPv4 address of server",
+			"Application:Hyperscanning%20Network%20Logger string SharedStates= % % % %"
+			" // States to share with other clients",
 		END_PARAMETER_DEFINITIONS
 
 		BEGIN_STATE_DEFINITIONS
@@ -372,11 +374,10 @@ void HyperscanningApplicationBase::Setup() {
 	// Send Shared States List
 	//
 
-	if ( mSocket.Wait() ) {
-		std::string sharedstates_buffer = ( std::string ) OptionalParameter( "SharedStates" );
-		if ( ::send( mSocket.Fd(), sharedstates_buffer.c_str(), sharedstates_buffer.size(), 0 ) < 0 )
-			bciwarn << "Error sending to socket: " << errno;
-	}
+	std::string sharedstates_buffer = ( std::string ) OptionalParameter( "SharedStates" );
+	bciout << "Sending shared states";
+	if ( ::send( mSocket.Fd(), sharedstates_buffer.c_str(), sharedstates_buffer.size(), 0 ) < 0 )
+		bciwarn << "Error sending to socket: " << errno;
 
 	if ( mSocket.Wait() ) {
 		mBuffer = ( char* ) calloc( 1, 1 );
@@ -391,6 +392,8 @@ void HyperscanningApplicationBase::Setup() {
 		// 2: Successive Client, incorrect states
 		//
 
+		if ( *mBuffer == 0 )
+			bciout << "You are the first client, all other clients will need the same states as you";
 		if ( *mBuffer == 1 )
 			bciout << "Viable shared states";
 		if ( *mBuffer == 2 )
