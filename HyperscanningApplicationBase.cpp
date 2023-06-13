@@ -368,6 +368,35 @@ void HyperscanningApplicationBase::Setup() {
 		free( mBuffer );
 	}
 
+	//
+	// Send Shared States List
+	//
+
+	if ( mSocket.Wait() ) {
+		std::string sharedstates_buffer = ( std::string ) OptionalParameter( "SharedStates" );
+		if ( ::send( mSocket.Fd(), sharedstates_buffer.c_str(), sharedstates_buffer.size(), 0 ) < 0 )
+			bciwarn << "Error sending to socket: " << errno;
+	}
+
+	if ( mSocket.Wait() ) {
+		mBuffer = ( char* ) calloc( 1, 1 );
+
+		if ( ::recv( mSocket.Fd(), mBuffer, 1, 0 ) < 0 )
+			bciwarn << "Error sending to socket: " << errno;
+
+		//
+		// Shared States Viability Check
+		// 0: First Client, set the standard
+		// 1: Successive Client, viable states
+		// 2: Successive Client, incorrect states
+		//
+
+		if ( *mBuffer == 1 )
+			bciout << "Viable shared states";
+		if ( *mBuffer == 2 )
+			bcierr << "Shared states do not match";
+	}
+
 }
 
 //
