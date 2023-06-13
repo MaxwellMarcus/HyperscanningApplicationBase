@@ -96,13 +96,13 @@ void HyperscanningApplicationBase::Publish() {
 		//
 
 		BEGIN_PARAMETER_DEFINITIONS
-			"Source:Hyperscanning%20Network%20Logger int LogNetwork= 1 0 0 1"
+			"Application:Hyperscanning%20Network%20Logger int LogNetwork= 1 0 0 1"
 			" // record hyperscanning network states (boolean) ",
-			"Source:Hyperscanning%20Network%20Logger string IPAddress= 10.138.1.104 % % %"
+			"Application:Hyperscanning%20Network%20Logger string IPAddress= 10.138.1.104 % % %"
 			" // IPv4 address of server",
-			"Source:Hyperscanning%20Network%20Logger int Port= 1234 % % %"
+			"Application:Hyperscanning%20Network%20Logger int Port= 1234 % % %"
 			" // server port",
-			"Source:Hyperscanning%20Network%20Logger string ParameterPath= ../parms/CommunicationTask/HyperScanningParameters.prm % % %"
+			"Application:Hyperscanning%20Network%20Logger string ParameterPath= ../parms/CommunicationTask/HyperScanningParameters.prm % % %"
 			" // IPv4 address of server",
 		END_PARAMETER_DEFINITIONS
 
@@ -140,7 +140,7 @@ void HyperscanningApplicationBase::Publish() {
 		mStateValues = std::vector<uint64_t>( mSharedStates.size(), 0 );
 		mHasUpdated = std::vector<bool>( mSharedStates.size(), true );
 
-		remove( "../parms/CommunicationTask/HyperScanningParameters.prm" );
+		remove( ( ( std::string ) Parameter( "ParameterPath" ) ).c_str() ); //"../parms/CommunicationTask/HyperScanningParameters.prm" );
 	}
 
 	SharedPublish();
@@ -330,7 +330,8 @@ void HyperscanningApplicationBase::Setup() {
 
 			// Save the parameter file
 			std::string param_file = std::string( mBuffer, size - 1 );
-			std::ofstream outfile ( "../parms/CommunicationTask/HyperScanningParameters.prm" );
+			bciwarn << "Parameter path: " << ( std::string ) Parameter( "ParameterPath" );
+			std::ofstream outfile ( ( std::string ) Parameter( "ParameterPath" ) );//"../parms/CommunicationTask/HyperScanningParameters.prm" );
 			outfile << param_file;
 
 			free( mBuffer );
@@ -412,7 +413,8 @@ int HyperscanningApplicationBase::OnExecute() {
 				mBuffer = ( char* ) calloc( size + 1, 1 );
 				GetServerMessage( mBuffer, size );
 
-				bciwarn << "Message: " << mBuffer;
+				bciwarn << "Writing: " << mMessage;
+				bciout << "Time: " << std::chrono::duration_cast<std::chrono::milliseconds>( std::chrono::system_clock::now().time_since_epoch() ).count();
 
 				Interpret(mBuffer);
 				free( mBuffer );
