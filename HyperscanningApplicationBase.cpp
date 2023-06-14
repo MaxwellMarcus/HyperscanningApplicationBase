@@ -89,61 +89,67 @@ void HyperscanningApplicationBase::GetServerMessage( char* buff, size_t size ) {
 
 
 void HyperscanningApplicationBase::Publish() {
-	if ( OptionalParameter( "LogNetwork" ) > 0 ) {
 
-		//
-		// Initialize Parameters and local States
-		//
+	//
+	// Initialize Parameters and local States
+	//
 
-		BEGIN_PARAMETER_DEFINITIONS
-			"Application:Hyperscanning%20Network%20Logger int LogNetwork= 1 0 0 1"
-			" // record hyperscanning network states (boolean) ",
-			"Application:Hyperscanning%20Network%20Logger string IPAddress= 10.138.1.104 % % %"
-			" // IPv4 address of server",
-			"Application:Hyperscanning%20Network%20Logger int Port= 1234 % % %"
-			" // server port",
-			"Application:Hyperscanning%20Network%20Logger string ParameterPath= ../parms/CommunicationTask/HyperScanningParameters.prm % % %"
-			" // IPv4 address of server",
-			"Application:Hyperscanning%20Network%20Logger string SharedStates= % % % %"
-			" // States to share with other clients",
-		END_PARAMETER_DEFINITIONS
+	BEGIN_PARAMETER_DEFINITIONS
+		"Application:Hyperscanning%20Network%20Logger int LogNetwork= 1 0 0 1"
+		" // record hyperscanning network states (boolean) ",
+		"Application:Hyperscanning%20Network%20Logger string IPAddress= 10.138.1.104 % % %"
+		" // IPv4 address of server",
+		"Application:Hyperscanning%20Network%20Logger int Port= 1234 % % %"
+		" // server port",
+		"Application:Hyperscanning%20Network%20Logger string ParameterPath= ../parms/CommunicationTask/HyperScanningParameters.prm % % %"
+		" // IPv4 address of server",
+		"Application:Hyperscanning%20Network%20Logger string SharedStates= % % % %"
+		" // States to share with other clients",
+		"Application:Hyperscanning%20Network%20Logger string PreDefinedSharedStates= % % % %"
+		" // States to share with other clients that have already been defined by another module",
+	END_PARAMETER_DEFINITIONS
+
+	BEGIN_STATE_DEFINITIONS
+		"ClientNumber 8 0 0 0"
+	END_STATE_DEFINITIONS
+
+	//
+	// Initialize the states shared with the server and other client
+	//
+
+	std::string states( Parameter( "SharedStates" ) ); // get the list of shared states
+
+	std::vector<std::string> sharedStates; // Save the names of each of the states
+
+	std::istringstream f( ( states ) );
+	std::string name;
+	std::string size;
+
+	while ( getline( f, name, ',' ) ) {
+
+		if ( !getline( f, size, '&' ) )
+			bcierr << "Every Shared State must have a size";
+
+		bciout << "Shared State: " << name << ", " << size;
 
 		BEGIN_STATE_DEFINITIONS
-			"ClientNumber 8 0 0 0"
+			name + " " + size + " 0 0 0"
 		END_STATE_DEFINITIONS
 
-		//
-		// Initialize the states shared with the server and other client
-		//
-
-		std::string states( Parameter( "SharedStates" ) ); // get the list of shared states
-
-		std::vector<std::string> sharedStates; // Save the names of each of the states
-
-		std::istringstream f( ( states ) );
-		std::string name;
-		std::string size;
-
-		while ( getline( f, name, ',' ) ) {
-
-			if ( !getline( f, size, '&' ) )
-				bcierr << "Every Shared State must have a size";
-
-			bciout << "Shared State: " << name << ", " << size;
-
-			BEGIN_STATE_DEFINITIONS
-				name + " " + size + " 0 0 0"
-			END_STATE_DEFINITIONS
-
-			sharedStates.push_back( name );
-		}
-
-		mSharedStates = sharedStates;
-		mStateValues = std::vector<uint64_t>( mSharedStates.size(), 0 );
-		mHasUpdated = std::vector<bool>( mSharedStates.size(), true );
-
-		remove( ( ( std::string ) Parameter( "ParameterPath" ) ).c_str() ); //"../parms/CommunicationTask/HyperScanningParameters.prm" );
+		sharedStates.push_back( name );
 	}
+
+	std::string predefStates( Parameter( "PreDefinedSharedStates" ) );
+	f = std::istringstream( predefStates );
+	while ( getline( f, name, ',' ) ) {
+		sharedStates.push_back( name );
+	}
+
+	mSharedStates = sharedStates;
+	mStateValues = std::vector<uint64_t>( mSharedStates.size(), 0 );
+	mHasUpdated = std::vector<bool>( mSharedStates.size(), true );
+
+	remove( ( ( std::string ) Parameter( "ParameterPath" ) ).c_str() ); //"../parms/CommunicationTask/HyperScanningParameters.prm" );
 
 	SharedPublish();
 }
@@ -151,17 +157,20 @@ void HyperscanningApplicationBase::Publish() {
 
 
 void HyperscanningApplicationBase::Preflight( const SignalProperties& Input, SignalProperties& Output ) const {
-	if ( OptionalParameter( "LogNetwork" ) > 0 ) {
-		if ( Parameter( "SharedStates" )->NumValues() < 1 )
-			bcierr << "You must have at least one shared state and a name and size for each";
-		if ( !OptionalParameter( "IPAddress" ) )
-			bcierr << "Must give server address";
-		if ( !OptionalParameter( "Port" ) )
-			bcierr << "Must specify port";
-		if (((std::string)Parameter("ParameterPath")).empty()) {
-			bcierr << "Must give parameter path";
-		}
-	}
+	OptionalParameter( "SharedStates" );
+	OptionalParameter( "IPAddress" );
+	OptionalParameter( "Port" );
+	OptionalParmater( "ParameterPath" );
+	//if ( !OptionalParameter( "SharedStates" ) )
+	//	bcierr << "You must have at least one shared state and a name and size for each";
+	//if ( !OptionalParameter( "IPAddress" ) )
+	//	bcierr << "Must give server address";
+	//if ( !OptionalParameter( "Port" ) )
+	//	bcierr << "Must specify port";
+	//if (((std::string)Parameter("ParameterPath")).empty()) {
+	//	bcierr << "Must give parameter path";
+	//}
+	State( "ClientNumber" );
 
 	SharedPreflight( Input, Output );
 
@@ -170,7 +179,7 @@ void HyperscanningApplicationBase::Preflight( const SignalProperties& Input, Sig
 
 
 void HyperscanningApplicationBase::Initialize(const SignalProperties& Input, const SignalProperties& Output) {
-	mLogNetwork = ( OptionalParameter( "LogNetwork" ) > 0 );
+	mLogNetwork = 1;//( OptionalParameter( "LogNetwork" ) > 0 );
 	if (!mLogNetwork) return;
 	bciout << "Client Number: " << ( int ) mClientNumber;
 	State( "ClientNumber" ) = mClientNumber;
@@ -374,10 +383,17 @@ void HyperscanningApplicationBase::Setup() {
 	// Send Shared States List
 	//
 
-	std::string sharedstates_buffer = ( std::string ) OptionalParameter( "SharedStates" );
+	std::string sharedstates_buffer = ( std::string ) OptionalParameter( "SharedStates" ) + ( std::string ) OptionalParameter( "PreDefinedSharedStates" );
 	bciout << "Sending shared states";
 	if ( ::send( mSocket.Fd(), sharedstates_buffer.c_str(), sharedstates_buffer.size(), 0 ) < 0 )
 		bciwarn << "Error sending to socket: " << errno;
+
+	//
+	// Shared States Viability Check
+	// 0: First Client, set the standard
+	// 1: Successive Client, viable states
+	// 2: Successive Client, incorrect states
+	//
 
 	if ( mSocket.Wait() ) {
 		mBuffer = ( char* ) calloc( 1, 1 );
@@ -385,12 +401,6 @@ void HyperscanningApplicationBase::Setup() {
 		if ( ::recv( mSocket.Fd(), mBuffer, 1, 0 ) < 0 )
 			bciwarn << "Error sending to socket: " << errno;
 
-		//
-		// Shared States Viability Check
-		// 0: First Client, set the standard
-		// 1: Successive Client, viable states
-		// 2: Successive Client, incorrect states
-		//
 
 		if ( *mBuffer == 0 )
 			bciout << "You are the first client, all other clients will need the same states as you";
