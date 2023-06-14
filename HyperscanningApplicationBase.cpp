@@ -93,6 +93,7 @@ void HyperscanningApplicationBase::Publish() {
 	//
 	// Initialize Parameters and local States
 	//
+	//
 
 	BEGIN_PARAMETER_DEFINITIONS
 		"Application:Hyperscanning%20Network%20Logger int LogNetwork= 1 0 0 1"
@@ -158,6 +159,7 @@ void HyperscanningApplicationBase::Publish() {
 
 void HyperscanningApplicationBase::Preflight( const SignalProperties& Input, SignalProperties& Output ) const {
 	OptionalParameter( "SharedStates" );
+	OptionalParameter( "PreDefinedSharedStates" );
 	OptionalParameter( "IPAddress" );
 	OptionalParameter( "Port" );
 	OptionalParameter( "ParameterPath" );
@@ -191,9 +193,7 @@ void HyperscanningApplicationBase::Initialize(const SignalProperties& Input, con
 
 void HyperscanningApplicationBase::AutoConfig(const SignalProperties& Input) {
 	bciwarn << "this autoconfig";
-	if (OptionalParameter("LogNetwork") > 0){
-		Setup();
-	}
+	Setup();
 
 	SharedAutoConfig( Input );
 }
