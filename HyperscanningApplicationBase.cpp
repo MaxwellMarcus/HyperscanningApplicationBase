@@ -160,7 +160,7 @@ void HyperscanningApplicationBase::Preflight( const SignalProperties& Input, Sig
 	OptionalParameter( "SharedStates" );
 	OptionalParameter( "IPAddress" );
 	OptionalParameter( "Port" );
-	OptionalParmater( "ParameterPath" );
+	OptionalParameter( "ParameterPath" );
 	//if ( !OptionalParameter( "SharedStates" ) )
 	//	bcierr << "You must have at least one shared state and a name and size for each";
 	//if ( !OptionalParameter( "IPAddress" ) )
