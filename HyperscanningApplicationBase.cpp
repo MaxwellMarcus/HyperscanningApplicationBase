@@ -142,7 +142,7 @@ void HyperscanningApplicationBase::Publish() {
 
 	std::string predefStates( Parameter( "PreDefinedSharedStates" ) );
 	f = std::istringstream( predefStates );
-	while ( getline( f, name, ',' ) ) {
+	while ( getline( f, name, '&' ) ) {
 		sharedStates.push_back( name );
 	}
 
@@ -387,6 +387,7 @@ void HyperscanningApplicationBase::Setup() {
 	bciout << "Sending shared states";
 	if ( ::send( mSocket.Fd(), sharedstates_buffer.c_str(), sharedstates_buffer.size(), 0 ) < 0 )
 		bciwarn << "Error sending to socket: " << errno;
+	bciout << "Shared states sent";
 
 	//
 	// Shared States Viability Check
@@ -395,6 +396,7 @@ void HyperscanningApplicationBase::Setup() {
 	// 2: Successive Client, incorrect states
 	//
 
+	bciout << "Waiting for server to send";
 	if ( mSocket.Wait() ) {
 		mBuffer = ( char* ) calloc( 1, 1 );
 
