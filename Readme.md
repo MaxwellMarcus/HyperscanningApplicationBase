@@ -1,10 +1,10 @@
 # HyperscanningApplicationBase
 Child class of BCI2000 ApplicationBase and BCI2000 Thread class. Implements client side of BCI2000 Hyperscanning. To be overriden by an application module that wants to be connected to other clients.
 
-## Documentation
+# Documentation
 
-### Methods
-`void HyperscanningApplicationBase::Publish() override;`  
+## Methods
+### `void HyperscanningApplicationBase::Publish() override;`  
 Overrides BCI2000 ApplicationBase Publish.  
 Defined Parameters:  
 `IPAddress` : IP Address of server to connect to (can be set at command line)  
@@ -116,9 +116,9 @@ Returns:
 Recieves a message from the server. Outputs to `HyperscanningApplicationBase::mBuffer`.
 
 
-### Members  
+## Members  
 
-#### Private  
+## Private  
 
 `std::vector<std::string> HyperscanningApplicationBase::mSharedStates` : list of states to be shared with the server  
 `std::vecotr<uint64_t> HyperscanningApplicationBase::mStateValues` : coresponding values of the shared states. Updated by `HyperscanningApplicationBase::Interpret()`.  
