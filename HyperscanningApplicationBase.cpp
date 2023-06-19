@@ -206,6 +206,8 @@ void HyperscanningApplicationBase::StartRun() {
 		State( "ClientNumber" ) = mClientNumber;
 		Start();
 	}
+
+	SharedStartRun();
 }
 
 
