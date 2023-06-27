@@ -1,5 +1,5 @@
 # HyperscanningApplicationBase
-Child class of BCI2000 ApplicationBase and BCI2000 Thread class. Implements client side of BCI2000 Hyperscanning. To be overriden by an application module that wants to be connected to other clients.
+Child class of BCI2000 ApplicationBase and BCI2000 Thread class. Implements client side of BCI2000 Hyperscanning. To be overriden by an application module that will be connected to other clients. Child class will implement inside of the `Shared` version of BCI2000 methods, i.e. `SharedPublish`, `SharedProcess`, etc. instead of `Publish`, `Process`, etc..
 
 # Documentation
 
