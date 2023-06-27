@@ -64,6 +64,7 @@ size_t HyperscanningApplicationBase::GetServerMessageSize() {
 			memcpy( &size, mBuffer, sizeof( size_t ) );
 
 			free( mBuffer );
+			mBuffer = NULL;
 		}
 	}
 
@@ -348,6 +349,7 @@ void HyperscanningApplicationBase::Setup() {
 			outfile << param_file;
 
 			free( mBuffer );
+			mBuffer = NULL;
 
 		}
 	}
@@ -379,6 +381,7 @@ void HyperscanningApplicationBase::Setup() {
 		mClientNumber = val;
 
 		free( mBuffer );
+		mBuffer = NULL;
 	}
 
 	//
@@ -412,6 +415,9 @@ void HyperscanningApplicationBase::Setup() {
 			bciout << "Viable shared states";
 		if ( *mBuffer == 2 )
 			bcierr << "Shared states do not match";
+
+		free( mBuffer );
+		mBuffer = NULL;
 	}
 
 }
@@ -464,6 +470,7 @@ int HyperscanningApplicationBase::OnExecute() {
 
 				Interpret(mBuffer);
 				free( mBuffer );
+				mBuffer = NULL;
 			}
 
 		}
