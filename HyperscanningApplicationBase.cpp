@@ -57,8 +57,11 @@ size_t HyperscanningApplicationBase::GetServerMessageSize() {
 		if ( mSocket.Wait() ) {
 			mBuffer = ( char* ) calloc( sizeof( size_t ), 1 );
 
-			if ( ::recv(mSocket.Fd(), mBuffer, sizeof( size_t ), 0) < 0 ) {  // read one packet only
+			int result;
+			if ( ( result = ::recv(mSocket.Fd(), mBuffer, sizeof( size_t ), 0) ) < 0 ) {  // read one packet only
 				bciwarn << "Error reading: " << errno;
+			} else if ( result == 0 ) {
+				bcierr << "Server disconnected";
 			}
 
 			memcpy( &size, mBuffer, sizeof( size_t ) );
@@ -80,8 +83,11 @@ size_t HyperscanningApplicationBase::GetServerMessageSize() {
 void HyperscanningApplicationBase::GetServerMessage( char* buff, size_t size ) {
 	for ( int i = 0; i < size; i++ ) {
 		if ( mSocket.Wait() ) {
-			if ( ::recv(mSocket.Fd(), buff + i, 1, 0) < 0 ) {  // read one packet only
+			int result;
+			if ( ( result = ::recv(mSocket.Fd(), buff + i, 1, 0) ) < 0 ) {  // read one packet only
 				bciwarn << "Error reading: " << errno;
+			} else if ( result == 0 ) {
+				bcierr << "Server disconnected";
 			}
 		}
 	}
@@ -316,7 +322,7 @@ void HyperscanningApplicationBase::Setup() {
 
 	// Ensure connection
 	if ( !mSocket.Connected() ) {
-		bciwarn << "Not connected to server. Try again.";
+		bcierr << "Not connected to server. Try again.";
 		return;
 	} else {
 		bciout << "Connected to server.";
@@ -365,8 +371,11 @@ void HyperscanningApplicationBase::Setup() {
 		mBuffer = ( char* ) calloc( 1025, 1 );
 		*mBuffer = 'q';
 
-		if ( ::recv(mSocket.Fd(), mBuffer, 1025, 0 ) < 0 ) // read one packet only
+		int result;
+		if ( ( result = ::recv(mSocket.Fd(), mBuffer, 1025, 0 ) ) < 0 ) // read one packet only
 			bciwarn << "reading socket: " << errno;
+		else if ( result == 0 )
+			bcierr << "Server disconnected";
 
 		char* buffer = mBuffer;
 		std::string name( buffer );
@@ -405,8 +414,11 @@ void HyperscanningApplicationBase::Setup() {
 	if ( mSocket.Wait() ) {
 		mBuffer = ( char* ) calloc( 1, 1 );
 
-		if ( ::recv( mSocket.Fd(), mBuffer, 1, 0 ) < 0 )
+		int result;
+		if ( ( result = ::recv( mSocket.Fd(), mBuffer, 1, 0 ) ) < 0 )
 			bciwarn << "Error sending to socket: " << errno;
+		else if ( result == 0 )
+			bcierr << "Server disconnected";
 
 
 		if ( *mBuffer == 0 )
