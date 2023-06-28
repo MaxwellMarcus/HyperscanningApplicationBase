@@ -81,16 +81,24 @@ size_t HyperscanningApplicationBase::GetServerMessageSize() {
 //
 
 void HyperscanningApplicationBase::GetServerMessage( char* buff, size_t size ) {
-	for ( int i = 0; i < size; i++ ) {
-		if ( mSocket.Wait() ) {
-			int result;
-			if ( ( result = ::recv(mSocket.Fd(), buff + i, 1, 0) ) < 0 ) {  // read one packet only
-				bciwarn << "Error reading: " << errno;
-			} else if ( result == 0 ) {
-				bcierr << "Server disconnected";
-			}
+	//for ( int i = 0; i < size; i++ ) {
+	//	if ( mSocket.Wait() ) {
+	int result = 0;
+	int total = 0;
+	while ( total < size ) {
+		if ( mSocket.Wait() && ( result = ::recv(mSocket.Fd(), buff + total, size - total, 0) ) < 0 ) {  // read one packet only
+			bciwarn << "Error reading: " << errno;
+			return;
+		} else if ( result == 0 ) {
+			bcierr << "Server disconnected";
+			return;
+		} else {
+			bciout << "Result" << result;
 		}
+		total += result;
 	}
+	//	}
+	//}
 }
 
 
@@ -473,6 +481,7 @@ int HyperscanningApplicationBase::OnExecute() {
 			size_t size = GetServerMessageSize();
 
 			if ( size > 0 ) {
+				bciout << "Get Server Message Time: " << std::chrono::duration_cast<std::chrono::milliseconds>( std::chrono::system_clock::now().time_since_epoch() ).count();
 				bciwarn << "Size: " << size;
 				mBuffer = ( char* ) calloc( size + 1, 1 );
 				GetServerMessage( mBuffer, size );
