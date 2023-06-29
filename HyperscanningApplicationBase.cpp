@@ -123,6 +123,8 @@ void HyperscanningApplicationBase::Publish() {
 		" // States to share with other clients",
 		"Application:Hyperscanning%20Network%20Logger string PreDefinedSharedStates= % % % %"
 		" // States to share with other clients that have already been defined by another module",
+		"Application:Hyperscanning%20Network%20Logger string ClientID= % % % %"
+		" // States to share with other clients that have already been defined by another module",
 	END_PARAMETER_DEFINITIONS
 
 	BEGIN_STATE_DEFINITIONS
@@ -178,6 +180,9 @@ void HyperscanningApplicationBase::Preflight( const SignalProperties& Input, Sig
 	OptionalParameter( "IPAddress" );
 	OptionalParameter( "Port" );
 	OptionalParameter( "ParameterPath" );
+	if ( std::string( Parameter( "ClientID" ) ).size() == 0 ) {
+		bciwarn << "ClientID not given. Using IP Address";
+	}
 	//if ( !OptionalParameter( "SharedStates" ) )
 	//	bcierr << "You must have at least one shared state and a name and size for each";
 	//if ( !OptionalParameter( "IPAddress" ) )
@@ -335,6 +340,11 @@ void HyperscanningApplicationBase::Setup() {
 	} else {
 		bciout << "Connected to server.";
 	}
+
+	// Send ID
+	std::string id = Parameter( "ClientID" );
+	bciout << "client id: " << id;
+	send( mSocket.Fd(), id.c_str(), id.size() + 1, NULL );
 
 	//
 	// Download Paramater File
